@@ -4,77 +4,90 @@ import (
 	"fmt"
 	"os"
 
-	"jira_cli/internal/jira"
+	"github.com/charmbracelet/bubbles/spinner"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
+
+	"jira_cli/internal/jira"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 type model struct {
-	choices  []string
-	cursor   int
-	selected map[int]struct{}
+	choices   []string
+	cursor    int
+	selected  map[int]struct{}
+	isLoading bool
+	spinner   spinner.Model
+	quitting  bool
+	err       error
 }
 
 func initialModel() model {
+	sp := spinner.New()
+	sp.Spinner = spinner.MiniDot
+	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 	return model{
-		// Our to-do list is a grocery list
 		choices: []string{},
 
 		// A map which indicates which choices are selected. We're using
 		// the  map like a mathematical set. The keys refer to the indexes
 		// of the `choices` slice, above.
-		selected: make(map[int]struct{}),
+		selected:  make(map[int]struct{}),
+		isLoading: true,
+		spinner:   sp,
+		quitting:  false,
+		err:       nil,
 	}
 }
 
-func (m model) Init() tea.Cmd {
-	return func() tea.Msg {
-		j, err := jira.GetJiraTickets()
-		if err != nil {
-			fmt.Println("Error getting Jira tickets:", err)
-			return nil
-		}
+type errMsg error
 
-		new_choices := []string{}
-		for _, issue := range j.Issues {
-			new_choices = append(new_choices, issue.Key+" - "+issue.Fields.Summary)
-		}
+type jiraTicketsMsg []string
 
-		return new_choices
+func fetchJiraTickets() tea.Msg {
+	j, err := jira.GetJiraTickets()
+	if err != nil {
+		return errMsg(err)
 	}
+
+	newChoices := []string{}
+	for _, issue := range j.Issues {
+		newChoices = append(newChoices, issue.Key+" - "+issue.Fields.Summary)
+	}
+
+	return jiraTicketsMsg(newChoices)
+}
+
+func (m model) Init() tea.Cmd {
+	return tea.Batch(m.spinner.Tick, fetchJiraTickets)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
-	case []string:
+	case jiraTicketsMsg:
 		m.choices = msg
+		m.isLoading = false
 
-	// Is it a key press?
 	case tea.KeyMsg:
 
-		// Cool, what was the actual key pressed?
 		switch msg.String() {
 
-		// These keys should exit the program.
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
-		// The "up" and "k" keys move the cursor up
 		case "up", "k":
 			if m.cursor > 0 {
 				m.cursor--
 			}
 
-		// The "down" and "j" keys move the cursor down
 		case "down", "j":
 			if m.cursor < len(m.choices)-1 {
 				m.cursor++
 			}
 
-		// The "enter" key and the spacebar (a literal space) toggle
-		// the selected state for the item that the cursor is pointing at.
 		case "enter", " ":
 			_, ok := m.selected[m.cursor]
 			if ok {
@@ -83,6 +96,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selected[m.cursor] = struct{}{}
 			}
 		}
+	default:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+
 	}
 
 	// Return the updated model to the Bubble Tea runtime for processing.
@@ -91,33 +109,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	// The header
-	s := "What should we buy at the market?\n\n"
-
-	// Iterate over our choices
-	for i, choice := range m.choices {
-
-		// Is the cursor pointing at this choice?
-		cursor := " " // no cursor
-		if m.cursor == i {
-			cursor = ">" // cursor!
-		}
-
-		// Is this choice selected?
-		checked := " " // not selected
-		if _, ok := m.selected[i]; ok {
-			checked = "x" // selected!
-		}
-
-		// Render the row
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+	if m.isLoading {
+		return fmt.Sprintf("\n\n   %s Loading Tickets\n\n", m.spinner.View())
 	}
 
-	// The footer
-	s += "\nPress q to quit.\n"
+	body := "Choose a ticket.\n\n"
 
-	// Send the UI for rendering
-	return s
+	for i, choice := range m.choices {
+
+		cursor := " "
+		if m.cursor == i {
+			cursor = ">"
+		}
+
+		checked := " "
+		if _, ok := m.selected[i]; ok {
+			checked = "x"
+		}
+
+		body += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+	}
+
+	body += "\nPress q to quit.\n"
+
+	return body
 }
 
 func main() {
