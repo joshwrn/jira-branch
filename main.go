@@ -7,6 +7,7 @@ import (
 	"jira_cli/internal/jira"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/joho/godotenv"
 )
 
 type model struct {
@@ -120,6 +121,11 @@ func (m model) View() string {
 }
 
 func main() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		fmt.Println("Warning: .env file not found. Make sure you have set the required environment variables.")
+	}
+
 	p := tea.NewProgram(initialModel())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)

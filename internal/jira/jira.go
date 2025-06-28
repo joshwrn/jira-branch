@@ -3,16 +3,27 @@ package jira
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 )
 
-var apiToken = os.Getenv("JIRA_API_TOKEN")
-var username = os.Getenv("JIRA_USERNAME")
-var jiraUrl = os.Getenv("JIRA_URL")
-
 func GetJiraTickets() (JiraSearchResult, error) {
+	apiToken := os.Getenv("JIRA_API_TOKEN")
+	username := os.Getenv("JIRA_USERNAME")
+	jiraUrl := os.Getenv("JIRA_URL")
+
+	if apiToken == "" {
+		return JiraSearchResult{}, fmt.Errorf("JIRA_API_TOKEN environment variable is required")
+	}
+	if username == "" {
+		return JiraSearchResult{}, fmt.Errorf("JIRA_USERNAME environment variable is required")
+	}
+	if jiraUrl == "" {
+		return JiraSearchResult{}, fmt.Errorf("JIRA_URL environment variable is required")
+	}
+
 	// JIRA REST API endpoint
 	url := jiraUrl + "/rest/api/3/search"
 
@@ -30,7 +41,7 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	// Add query parameters
 	q := req.URL.Query()
 	q.Add("jql", "assignee = currentUser()") // Get tickets assigned to you
-	q.Add("maxResults", "50")
+	q.Add("maxResults", "5")
 	req.URL.RawQuery = q.Encode()
 
 	// Make request
