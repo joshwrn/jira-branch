@@ -63,7 +63,7 @@ func returnChoices() tea.Cmd {
 func (m *model) updateListSize() {
 	if m.width > 0 && m.height > 0 {
 		m.list.SetWidth(m.width)
-		m.list.SetHeight(m.height)
+		m.list.SetHeight(m.height - 1)
 	}
 }
 
@@ -102,10 +102,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "list":
 			switch msg.String() {
 
+			case "/":
+				m.list.SetShowFilter(true)
+				m.list.SetFilteringEnabled(true)
+				m.list.SetFilterState(list.Filtering)
+				return m, nil
+
 			case "esc":
 				if m.list.FilterState() == list.Filtering {
 					m.list.SetFilterState(list.Unfiltered)
 					m.list.SetFilterText("")
+					m.list.SetShowFilter(false)
 					return m, nil
 				}
 				return m, nil
@@ -114,6 +121,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.view == "list" {
 					if m.list.FilterState() == list.Filtering {
 						m.list.SetFilterState(list.FilterApplied)
+						m.list.SetShowFilter(false)
 						return m, nil
 					}
 
@@ -180,12 +188,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.isLoading {
-		loadingText := fmt.Sprintf("%s %s", m.spinner.View(), "Loading Jira tickets...")
-
-		return fmt.Sprintf("\n%s\n\nPress q to quit", loadingText)
-	}
-
 	if m.err != nil {
 		errorText := fmt.Sprintf("Error loading data: %v", m.err)
 		helpText := "Press 'r' to retry or 'q' to quit"
@@ -198,6 +200,12 @@ func (m model) View() string {
 		}
 
 		return fmt.Sprintf("\n%s\n\n%s\n", errorText, helpText)
+	}
+
+	if m.isLoading {
+		loadingText := fmt.Sprintf("%s %s", m.spinner.View(), "Loading Jira tickets...")
+
+		return fmt.Sprintf("\n%s\n\nPress q to quit", loadingText)
 	}
 
 	if m.view == "input" {
@@ -213,7 +221,12 @@ func (m model) View() string {
 		)
 	}
 
-	return m.list.View()
+	return fmt.Sprintf("%s%s%s\n%s",
+		lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", 15)),
+		" Select a ticket ",
+		lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", 15)),
+		m.list.View(),
+	)
 }
 
 func main() {
