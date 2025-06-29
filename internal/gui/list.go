@@ -15,7 +15,8 @@ func newCustomDelegate() list.DefaultDelegate {
 		Bold(true)
 
 	d.Styles.SelectedDesc = d.Styles.SelectedDesc.
-		Foreground(lipgloss.Color("7"))
+		Foreground(lipgloss.Color("5")).
+		Faint(true)
 
 	d.Styles.NormalTitle = d.Styles.NormalTitle.
 		Foreground(lipgloss.Color("4")).

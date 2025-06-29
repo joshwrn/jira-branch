@@ -201,12 +201,15 @@ func (m model) View() string {
 	}
 
 	if m.view == "input" {
-		boldStyle := lipgloss.NewStyle().Bold(true)
+		faintStyle := lipgloss.NewStyle().Faint(true)
 		return fmt.Sprintf(
-			"%s\n\n%s checkout branch • %s go back",
+			"%s\n\nenter %s %s esc %s %s q/ctrl+c %s",
 			m.input.View(),
-			boldStyle.Render("enter"),
-			boldStyle.Render("esc"),
+			faintStyle.Render("checkout branch"),
+			faintStyle.Render("•"),
+			faintStyle.Render("go back"),
+			faintStyle.Render("•"),
+			faintStyle.Render("quit"),
 		)
 	}
 
