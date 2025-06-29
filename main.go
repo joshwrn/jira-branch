@@ -244,7 +244,7 @@ func main() {
 
 	s := spinner.New()
 	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	emptyList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 
