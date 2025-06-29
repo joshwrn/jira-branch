@@ -37,7 +37,7 @@ func GetJiraTickets() (JiraSearchResult, error) {
 
 	q := req.URL.Query()
 	q.Add("jql", "assignee = currentUser() order by createdDate")
-	q.Add("maxResults", "200")
+	q.Add("maxResults", "100")
 	req.URL.RawQuery = q.Encode()
 
 	client := &http.Client{}
