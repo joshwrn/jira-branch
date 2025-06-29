@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/table"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
@@ -16,12 +16,53 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+func newCustomDelegate() list.DefaultDelegate {
+	d := list.NewDefaultDelegate()
+
+	// Customize the styles
+	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
+		Foreground(lipgloss.Color("5")).
+		Bold(true)
+
+	d.Styles.SelectedDesc = d.Styles.SelectedDesc.
+		Foreground(lipgloss.Color("7"))
+
+	d.Styles.NormalTitle = d.Styles.NormalTitle.
+		Foreground(lipgloss.Color("4")).
+		Bold(true)
+
+	d.Styles.NormalDesc = d.Styles.NormalDesc.
+		Foreground(lipgloss.Color("7"))
+
+	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
+		BorderLeft(true).
+		BorderLeftForeground(lipgloss.Color("5"))
+
+	d.Styles.SelectedDesc = d.Styles.SelectedDesc.
+		BorderLeft(true).
+		BorderLeftForeground(lipgloss.Color("5"))
+
+	d.SetSpacing(0)
+
+	return d
+}
+
 type jiraTicketsMsg struct {
 	Key     string
 	Summary string
 }
+
+type item struct {
+	key     string
+	summary string
+}
+
+func (i item) FilterValue() string { return i.key + " " + i.summary }
+func (i item) Title() string       { return i.key }
+func (i item) Description() string { return i.summary }
+
 type model struct {
-	table     table.Model
+	list      list.Model
 	cursor    int
 	selected  map[int]struct{}
 	isLoading bool
@@ -30,10 +71,6 @@ type model struct {
 	width     int
 	height    int
 }
-
-var baseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
 
 type errMsg error
 
@@ -56,29 +93,15 @@ func fetchJiraTickets() tea.Cmd {
 	}
 }
 
-func (m *model) updateTableSize() {
+func (m *model) updateListSize() {
 	if m.width > 0 && m.height > 0 {
 		availableHeight := m.height
 		if availableHeight < 5 {
 			availableHeight = 5
 		}
 
-		totalBorderWidth := 8
-		availableWidth := m.width - totalBorderWidth
-
-		if availableWidth > 0 {
-			keyWidth := max(8, availableWidth*5/100)
-			summaryWidth := max(20, availableWidth*80/100)
-
-			cols := m.table.Columns()
-			if len(cols) > 0 {
-				cols[0].Width = keyWidth
-				cols[1].Width = summaryWidth
-				m.table.SetColumns(cols)
-			}
-		}
-
-		m.table.SetHeight(availableHeight)
+		m.list.SetWidth(m.width)
+		m.list.SetHeight(availableHeight)
 	}
 }
 
@@ -104,7 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		if !m.isLoading && m.err == nil {
-			m.updateTableSize()
+			m.updateListSize()
 		}
 
 	case tea.KeyMsg:
@@ -113,19 +136,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		switch msg.String() {
-		case "esc":
-			if m.table.Focused() {
-				m.table.Blur()
-			} else {
-				m.table.Focus()
-			}
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "enter":
-			if len(m.table.SelectedRow()) > 0 {
-				return m, tea.Batch(
-					tea.Printf("Let's go to %s!", m.table.SelectedRow()[1]),
-				)
+			selectedItem := m.list.SelectedItem()
+			if selectedItem != nil {
+				if i, ok := selectedItem.(item); ok {
+					return m, tea.Batch(
+						tea.Printf("Let's go to %s!", i.summary),
+					)
+				}
 			}
 		case "r":
 			m.isLoading = true
@@ -137,42 +157,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case []jiraTicketsMsg:
-		rows := []table.Row{}
+		items := []list.Item{}
 		for _, choice := range msg {
-			rows = append(rows, table.Row{choice.Key, choice.Summary})
+			items = append(items, item{
+				key:     choice.Key,
+				summary: choice.Summary,
+			})
 		}
+		delegate := newCustomDelegate()
+		l := list.New(items, delegate, 0, 0)
 
-		t := table.New(
-			table.WithColumns([]table.Column{
-				{Title: "Select a ticket", Width: 10},
-				{Title: "", Width: 50},
-			}),
-			table.WithRows(rows),
-			table.WithFocused(true),
-			table.WithHeight(10),
-		)
+		l.SetShowStatusBar(false)
+		l.SetFilteringEnabled(true)
+		l.SetShowHelp(false)
+		l.SetShowPagination(false)
 
-		s := table.DefaultStyles()
+		l.Title = strings.Repeat("─", 10) + " Select a ticket " + strings.Repeat("─", 10)
 
-		s.Header = s.Header.
-			Bold(false).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderBottom(true).
-			Height(0).
-			Padding(0).
-			Foreground(lipgloss.Color("7")).
-			Bold(true)
+		l.Styles.Title = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("7"))
 
-		s.Selected = s.Selected.
-			UnsetForeground().
-			Foreground(lipgloss.Color("7")).
-			Background(lipgloss.Color("0")).
-			Bold(true)
-		t.SetStyles(s)
+		l.Styles.TitleBar = lipgloss.NewStyle().
+			Padding(0, 0)
 
-		m.table = t
+		m.list = l
 		m.isLoading = false
-		m.updateTableSize()
+		m.updateListSize()
 		return m, nil
 
 	case errMsg:
@@ -188,11 +198,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if !m.isLoading {
-		m.table, cmd = m.table.Update(msg)
+		m.list, cmd = m.list.Update(msg)
 	}
 
 	return m, cmd
-
 }
 
 func (m model) View() string {
@@ -216,11 +225,10 @@ func (m model) View() string {
 		return fmt.Sprintf("\n%s\n\n%s\n", errorText, helpText)
 	}
 
-	return m.table.View()
+	return m.list.View()
 }
 
 func main() {
-
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("Warning: .env file not found. Make sure you have set the required environment variables.")
 	}
@@ -229,14 +237,10 @@ func main() {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
 
-	emptyTable := table.New(
-		table.WithColumns([]table.Column{}),
-		table.WithRows([]table.Row{}),
-		table.WithHeight(10),
-	)
+	emptyList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
 
 	m := model{
-		table:     emptyTable,
+		list:      emptyList,
 		spinner:   s,
 		isLoading: true,
 	}
