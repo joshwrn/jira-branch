@@ -41,7 +41,8 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	req.Header.Add("Accept", "application/json")
 
 	q := req.URL.Query()
-	q.Add("jql", "assignee = currentUser() order by createdDate")
+	q.Add("jql", "assignee = currentUser() AND status != Done order by createdDate")
+	q.Add("fields", "summary,status,issuetype,assignee,created")
 	q.Add("maxResults", "100")
 	req.URL.RawQuery = q.Encode()
 
@@ -63,6 +64,8 @@ func GetJiraTickets() (JiraSearchResult, error) {
 		return JiraSearchResult{}, err
 	}
 
+	fmt.Println(result)
+
 	return result, nil
 }
 
@@ -73,7 +76,16 @@ type JiraSearchResult struct {
 
 type Issue struct {
 	Key    string `json:"key"`
-	Fields Fields `json:"fields"`
+	Fields struct {
+		Summary string `json:"summary"`
+		Status  struct {
+			Name string `json:"name"`
+		} `json:"status"`
+		IssueType struct {
+			Name string `json:"name"`
+		} `json:"issuetype"`
+		Created string `json:"created"`
+	} `json:"fields"`
 }
 
 type Fields struct {
