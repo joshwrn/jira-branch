@@ -127,7 +127,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							m.view = "input"
 
 							ti := textinput.New()
-							ti.Prompt = "Confirm branch name: \n\n"
+							ti.Prompt = "Confirm or edit branch name: \n\n"
 							ti.SetValue(selected_branch)
 							ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 							ti.Focus()
@@ -225,7 +225,13 @@ func (m model) View() string {
 	}
 
 	if m.view == "input" {
-		return m.input.View()
+		boldStyle := lipgloss.NewStyle().Bold(true)
+		return fmt.Sprintf(
+			"%s\n\n%s checkout branch • %s go back",
+			m.input.View(),
+			boldStyle.Render("enter"),
+			boldStyle.Render("esc"),
+		)
 	}
 
 	return m.list.View()
