@@ -1,11 +1,13 @@
 package gui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
 
-func NewCustomDelegate() list.DefaultDelegate {
+func newCustomDelegate() list.DefaultDelegate {
 	d := list.NewDefaultDelegate()
 
 	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
@@ -33,4 +35,23 @@ func NewCustomDelegate() list.DefaultDelegate {
 	d.SetSpacing(0)
 
 	return d
+}
+
+func NewCustomList(items []list.Item) list.Model {
+	delegate := newCustomDelegate()
+	l := list.New(items, delegate, 0, 0)
+
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(true)
+	l.SetShowHelp(false)
+	l.SetShowPagination(false)
+
+	l.Title = strings.Repeat("─", 10) + " Select a ticket " + strings.Repeat("─", 10)
+
+	l.Styles.Title = lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7"))
+
+	l.Styles.TitleBar = lipgloss.NewStyle().
+		Padding(0, 0)
+	return l
 }

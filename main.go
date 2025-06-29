@@ -125,16 +125,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 								Summary: i.summary,
 							})
 							m.view = "input"
-
-							ti := textinput.New()
-							ti.Prompt = "Confirm or edit branch name: \n\n"
-							ti.SetValue(selected_branch)
-							ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-							ti.Focus()
-							ti.CharLimit = 200
-							ti.Width = m.width
-							m.input = ti
-
+							m.input = gui.CreateBranchInput(selected_branch, m.width)
 							return m, nil
 						}
 					}
@@ -163,23 +154,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				summary: choice.Summary,
 			})
 		}
-		delegate := gui.NewCustomDelegate()
-		l := list.New(items, delegate, 0, 0)
 
-		l.SetShowStatusBar(false)
-		l.SetFilteringEnabled(true)
-		l.SetShowHelp(false)
-		l.SetShowPagination(false)
-
-		l.Title = strings.Repeat("─", 10) + " Select a ticket " + strings.Repeat("─", 10)
-
-		l.Styles.Title = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("7"))
-
-		l.Styles.TitleBar = lipgloss.NewStyle().
-			Padding(0, 0)
-
-		m.list = l
+		m.list = gui.NewCustomList(items)
 		m.isLoading = false
 		m.updateListSize()
 		return m, nil
