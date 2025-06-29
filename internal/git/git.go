@@ -13,7 +13,12 @@ import (
 type errMsg error
 
 func FormatBranchName(ticket jira.JiraTicketsMsg) string {
-	branchName := "feature/" + ticket.Key + "-" + strings.ToLower(ticket.Summary)
+	prefix := "feature/"
+	if ticket.Type == "Bug" {
+		prefix = "bug/"
+	}
+
+	branchName := prefix + ticket.Key + "-" + strings.ToLower(ticket.Summary)
 	branchName = strings.ReplaceAll(branchName, " ", "_")
 
 	return branchName

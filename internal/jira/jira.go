@@ -12,6 +12,9 @@ import (
 type JiraTicketsMsg struct {
 	Key     string
 	Summary string
+	Type    string
+	Status  string
+	Created string
 }
 
 func GetJiraTickets() (JiraSearchResult, error) {

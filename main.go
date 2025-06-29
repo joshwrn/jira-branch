@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,21 +15,13 @@ import (
 	git_utils "jira_cli/internal/git"
 	"jira_cli/internal/gui"
 	"jira_cli/internal/jira"
+	"jira_cli/internal/utils"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
-type item struct {
-	key     string
-	summary string
-}
-
-func (i item) FilterValue() string { return i.key + " " + i.summary }
-func (i item) Title() string       { return i.key }
-func (i item) Description() string { return i.summary }
-
 type model struct {
-	list      list.Model
+	table     table.Model
 	isLoading bool
 	spinner   spinner.Model
 	err       error
@@ -37,6 +29,7 @@ type model struct {
 	height    int
 	view      string
 	input     textinput.Model
+	tickets   []jira.JiraTicketsMsg
 }
 
 type errMsg error
@@ -52,7 +45,10 @@ func returnChoices() tea.Cmd {
 		for _, issue := range j.Issues {
 			newChoices = append(newChoices, jira.JiraTicketsMsg{
 				Key:     issue.Key,
+				Type:    issue.Fields.IssueType.Name,
 				Summary: issue.Fields.Summary,
+				Status:  issue.Fields.Status.Name,
+				Created: issue.Fields.Created,
 			})
 		}
 
@@ -60,10 +56,24 @@ func returnChoices() tea.Cmd {
 	}
 }
 
-func (m *model) updateListSize() {
+func (m *model) updateTableSize() {
 	if m.width > 0 && m.height > 0 {
-		m.list.SetWidth(m.width)
-		m.list.SetHeight(m.height - 1)
+		keyWidth := 10
+		typeWidth := 10
+		statusWidth := 30
+		createdWidth := 15
+		summaryWidth := max(20, m.width-keyWidth-typeWidth-statusWidth-createdWidth-10)
+
+		columns := []table.Column{
+			{Title: "Key", Width: keyWidth},
+			{Title: "Type", Width: typeWidth},
+			{Title: "Summary", Width: summaryWidth},
+			{Title: "Status", Width: statusWidth},
+			{Title: "Created", Width: createdWidth},
+		}
+		m.table.SetColumns(columns)
+		m.table.SetWidth(m.width)
+		m.table.SetHeight(m.height)
 	}
 }
 
@@ -90,7 +100,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		if !m.isLoading && m.err == nil {
-			m.updateListSize()
+			m.updateTableSize()
 		}
 
 	case tea.KeyMsg:
@@ -101,41 +111,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch m.view {
 		case "list":
 			switch msg.String() {
-
-			case "/":
-				m.list.SetShowFilter(true)
-				m.list.SetFilteringEnabled(true)
-				m.list.SetFilterState(list.Filtering)
-				return m, nil
-
-			case "esc":
-				if m.list.FilterState() == list.Filtering {
-					m.list.SetFilterState(list.Unfiltered)
-					m.list.SetFilterText("")
-					m.list.SetShowFilter(false)
-					return m, nil
-				}
-				return m, nil
-
 			case "enter":
-				if m.view == "list" {
-					if m.list.FilterState() == list.Filtering {
-						m.list.SetFilterState(list.FilterApplied)
-						m.list.SetShowFilter(false)
+				if m.view == "list" && len(m.tickets) > 0 {
+					selectedRow := m.table.Cursor()
+					if selectedRow < len(m.tickets) {
+						selectedTicket := m.tickets[selectedRow]
+						selected_branch := git_utils.FormatBranchName(selectedTicket)
+						m.view = "input"
+						m.input = gui.CreateBranchInput(selected_branch, m.width)
 						return m, nil
-					}
-
-					selectedItem := m.list.SelectedItem()
-					if selectedItem != nil {
-						if i, ok := selectedItem.(item); ok {
-							selected_branch := git_utils.FormatBranchName(jira.JiraTicketsMsg{
-								Key:     i.key,
-								Summary: i.summary,
-							})
-							m.view = "input"
-							m.input = gui.CreateBranchInput(selected_branch, m.width)
-							return m, nil
-						}
 					}
 				}
 			}
@@ -155,17 +139,44 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case []jira.JiraTicketsMsg:
-		items := []list.Item{}
-		for _, choice := range msg {
-			items = append(items, item{
-				key:     choice.Key,
-				summary: choice.Summary,
-			})
+		m.tickets = msg
+
+		columns := []table.Column{
+			{Title: "Key", Width: 0},
+			{Title: "Type", Width: 0},
+			{Title: "Summary", Width: 0},
+			{Title: "Status", Width: 0},
+			{Title: "Created", Width: 0},
 		}
 
-		m.list = gui.NewCustomList(items)
+		rows := []table.Row{}
+		for _, ticket := range msg {
+			rows = append(rows, table.Row{ticket.Key, ticket.Type, ticket.Summary, ticket.Status, utils.FormatRelativeTime(ticket.Created)})
+		}
+
+		t := table.New(
+			table.WithColumns(columns),
+			table.WithRows(rows),
+			table.WithFocused(true),
+		)
+
+		s := table.DefaultStyles()
+		s.Header = s.Header.
+			Faint(true).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderForeground(lipgloss.Color("7")).
+			BorderBottom(true).
+			Bold(false)
+		s.Selected = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("5")).
+			Background(lipgloss.Color("0")).
+			Bold(false)
+
+		t.SetStyles(s)
+
+		m.table = t
 		m.isLoading = false
-		m.updateListSize()
+		m.updateTableSize()
 		return m, nil
 
 	case errMsg:
@@ -180,8 +191,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.isLoading {
-		m.list, cmd = m.list.Update(msg)
+	if !m.isLoading && m.view == "list" {
+		m.table, cmd = m.table.Update(msg)
 	}
 
 	return m, cmd
@@ -221,12 +232,7 @@ func (m model) View() string {
 		)
 	}
 
-	return fmt.Sprintf("%s%s%s\n%s",
-		lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", 15)),
-		" Select a ticket ",
-		lipgloss.NewStyle().Faint(true).Render(strings.Repeat("─", 15)),
-		m.list.View(),
-	)
+	return m.table.View()
 }
 
 func main() {
@@ -238,14 +244,13 @@ func main() {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
-	emptyList := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
-
 	m := model{
-		list:      emptyList,
+		table:     table.New(),
 		spinner:   s,
 		isLoading: true,
 		view:      "list",
 		input:     textinput.New(),
+		tickets:   []jira.JiraTicketsMsg{},
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
