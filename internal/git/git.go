@@ -12,23 +12,15 @@ import (
 
 type errMsg error
 
-func CheckoutBranch(ticket jira.JiraTicketsMsg) tea.Cmd {
+func FormatBranchName(ticket jira.JiraTicketsMsg) string {
+	branchName := "feature/" + ticket.Key + "-" + strings.ToLower(ticket.Summary)
+	branchName = strings.ReplaceAll(branchName, " ", "_")
+
+	return branchName
+}
+
+func CheckoutBranch(branchName string) tea.Cmd {
 	return func() tea.Msg {
-		branchName := strings.ToLower("feature/" + ticket.Key + "-" + ticket.Summary)
-		branchName = strings.ReplaceAll(branchName, " ", "_")
-
-		maxLength := 80
-		if len(branchName) > maxLength {
-			truncated := branchName[:maxLength]
-			if lastUnderscore := strings.LastIndex(truncated, "_"); lastUnderscore != -1 {
-				branchName = truncated[:lastUnderscore] + "-"
-			} else {
-				branchName = truncated + "-"
-			}
-		}
-
-		fmt.Println("branchName", branchName)
-
 		checkCmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
 		branchExists := checkCmd.Run() == nil
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
@@ -34,11 +35,13 @@ type model struct {
 	err       error
 	width     int
 	height    int
+	view      string
+	input     textinput.Model
 }
 
 type errMsg error
 
-func fetchJiraTickets() tea.Cmd {
+func returnChoices() tea.Cmd {
 	return func() tea.Msg {
 		j, err := jira.GetJiraTickets()
 		if err != nil {
@@ -74,7 +77,8 @@ func max(a, b int) int {
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
-		fetchJiraTickets(),
+		textinput.Blink,
+		returnChoices(),
 	)
 }
 
@@ -90,29 +94,65 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		if m.isLoading {
-			return m, nil
+		if msg.String() == "q" || msg.String() == "ctrl+c" {
+			return m, tea.Quit
 		}
 
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			if m.list.FilterState() == list.Filtering {
-				m.list.SetFilterState(list.FilterApplied)
+		switch m.view {
+		case "list":
+			switch msg.String() {
+
+			case "esc":
+				if m.list.FilterState() == list.Filtering {
+					m.list.SetFilterState(list.Unfiltered)
+					m.list.SetFilterText("")
+					return m, nil
+				}
+				return m, nil
+
+			case "enter":
+				if m.view == "list" {
+					if m.list.FilterState() == list.Filtering {
+						m.list.SetFilterState(list.FilterApplied)
+						return m, nil
+					}
+
+					selectedItem := m.list.SelectedItem()
+					if selectedItem != nil {
+						if i, ok := selectedItem.(item); ok {
+							selected_branch := git_utils.FormatBranchName(jira.JiraTicketsMsg{
+								Key:     i.key,
+								Summary: i.summary,
+							})
+							m.view = "input"
+
+							ti := textinput.New()
+							ti.Prompt = "Confirm branch name: \n\n"
+							ti.SetValue(selected_branch)
+							ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+							ti.Focus()
+							ti.CharLimit = 200
+							ti.Width = m.width
+							m.input = ti
+
+							return m, nil
+						}
+					}
+				}
+			}
+
+		case "input":
+			switch msg.String() {
+			case "enter":
+				branchName := m.input.Value()
+				return m, git_utils.CheckoutBranch(branchName)
+			case "esc":
+				m.view = "list"
 				return m, nil
 			}
 
-			selectedItem := m.list.SelectedItem()
-			if selectedItem != nil {
-				if i, ok := selectedItem.(item); ok {
-					return m,
-						git_utils.CheckoutBranch(jira.JiraTicketsMsg{
-							Key:     i.key,
-							Summary: i.summary,
-						})
-				}
-			}
+			m.input, cmd = m.input.Update(msg)
+			return m, cmd
 		}
 
 	case []jira.JiraTicketsMsg:
@@ -184,6 +224,10 @@ func (m model) View() string {
 		return fmt.Sprintf("\n%s\n\n%s\n", errorText, helpText)
 	}
 
+	if m.view == "input" {
+		return m.input.View()
+	}
+
 	return m.list.View()
 }
 
@@ -202,6 +246,8 @@ func main() {
 		list:      emptyList,
 		spinner:   s,
 		isLoading: true,
+		view:      "list",
+		input:     textinput.New(),
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
