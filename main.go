@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -16,10 +17,47 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+func checkoutBranch(ticket jiraTicketsMsg) tea.Cmd {
+	return func() tea.Msg {
+		branchName := strings.ToLower("feature/" + ticket.Key + "-" + ticket.Summary)
+		branchName = strings.ReplaceAll(branchName, " ", "_")
+
+		maxLength := 80
+		if len(branchName) > maxLength {
+			truncated := branchName[:maxLength]
+			if lastUnderscore := strings.LastIndex(truncated, "_"); lastUnderscore != -1 {
+				branchName = truncated[:lastUnderscore] + "-"
+			} else {
+				branchName = truncated + "-"
+			}
+		}
+
+		fmt.Println("branchName", branchName)
+
+		checkCmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
+		branchExists := checkCmd.Run() == nil
+
+		var cmd *exec.Cmd
+
+		if branchExists {
+			cmd = exec.Command("git", "checkout", branchName)
+		} else {
+			cmd = exec.Command("git", "checkout", "-b", branchName)
+		}
+
+		err := cmd.Run()
+
+		if err != nil {
+			return errMsg(fmt.Errorf("failed to checkout branch %s: %v", branchName, err))
+		}
+
+		return tea.Quit()
+	}
+}
+
 func newCustomDelegate() list.DefaultDelegate {
 	d := list.NewDefaultDelegate()
 
-	// Customize the styles
 	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
 		Foreground(lipgloss.Color("5")).
 		Bold(true)
@@ -63,8 +101,6 @@ func (i item) Description() string { return i.summary }
 
 type model struct {
 	list      list.Model
-	cursor    int
-	selected  map[int]struct{}
 	isLoading bool
 	spinner   spinner.Model
 	err       error
@@ -95,13 +131,8 @@ func fetchJiraTickets() tea.Cmd {
 
 func (m *model) updateListSize() {
 	if m.width > 0 && m.height > 0 {
-		availableHeight := m.height
-		if availableHeight < 5 {
-			availableHeight = 5
-		}
-
 		m.list.SetWidth(m.width)
-		m.list.SetHeight(availableHeight)
+		m.list.SetHeight(m.height)
 	}
 }
 
@@ -142,9 +173,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectedItem := m.list.SelectedItem()
 			if selectedItem != nil {
 				if i, ok := selectedItem.(item); ok {
-					return m, tea.Batch(
-						tea.Printf("Let's go to %s!", i.summary),
-					)
+					return m,
+						checkoutBranch(jiraTicketsMsg{
+							Key:     i.key,
+							Summary: i.summary,
+						})
 				}
 			}
 		case "r":
