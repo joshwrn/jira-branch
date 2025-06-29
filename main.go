@@ -62,7 +62,7 @@ func (m *model) updateTableSize() {
 		typeWidth := 10
 		statusWidth := 30
 		createdWidth := 15
-		summaryWidth := max(20, m.width-keyWidth-typeWidth-statusWidth-createdWidth-10)
+		summaryWidth := max(20, m.width-keyWidth-typeWidth-statusWidth-createdWidth-12)
 
 		columns := []table.Column{
 			{Title: "Key", Width: keyWidth},
@@ -72,8 +72,8 @@ func (m *model) updateTableSize() {
 			{Title: "Created", Width: createdWidth},
 		}
 		m.table.SetColumns(columns)
-		m.table.SetWidth(m.width)
-		m.table.SetHeight(m.height)
+		m.table.SetWidth(m.width - 2)
+		m.table.SetHeight(m.height - 2)
 	}
 }
 
@@ -162,13 +162,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		s := table.DefaultStyles()
 		s.Header = s.Header.
-			Faint(true).
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("7")).
+			BorderForeground(lipgloss.Color("8")).
 			BorderBottom(true).
 			Bold(false)
 		s.Selected = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("5")).
+			Foreground(lipgloss.Color("57")).
 			Background(lipgloss.Color("0")).
 			Bold(false)
 
@@ -232,7 +231,10 @@ func (m model) View() string {
 		)
 	}
 
-	return m.table.View()
+	return lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Render(m.table.View())
 }
 
 func main() {
