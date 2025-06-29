@@ -170,6 +170,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "enter":
+			if m.list.FilterState() == list.Filtering {
+				m.list.SetFilterState(list.FilterApplied)
+				return m, nil
+			}
+
 			selectedItem := m.list.SelectedItem()
 			if selectedItem != nil {
 				if i, ok := selectedItem.(item); ok {
@@ -180,13 +185,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						})
 				}
 			}
-		case "r":
-			m.isLoading = true
-			m.err = nil
-			return m, tea.Batch(
-				m.spinner.Tick,
-				fetchJiraTickets(),
-			)
 		}
 
 	case []jiraTicketsMsg:
