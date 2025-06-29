@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -12,83 +11,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
 
+	git_utils "jira_cli/internal/git"
+	"jira_cli/internal/gui"
 	"jira_cli/internal/jira"
 
 	"github.com/charmbracelet/lipgloss"
 )
-
-func checkoutBranch(ticket jiraTicketsMsg) tea.Cmd {
-	return func() tea.Msg {
-		branchName := strings.ToLower("feature/" + ticket.Key + "-" + ticket.Summary)
-		branchName = strings.ReplaceAll(branchName, " ", "_")
-
-		maxLength := 80
-		if len(branchName) > maxLength {
-			truncated := branchName[:maxLength]
-			if lastUnderscore := strings.LastIndex(truncated, "_"); lastUnderscore != -1 {
-				branchName = truncated[:lastUnderscore] + "-"
-			} else {
-				branchName = truncated + "-"
-			}
-		}
-
-		fmt.Println("branchName", branchName)
-
-		checkCmd := exec.Command("git", "show-ref", "--verify", "--quiet", "refs/heads/"+branchName)
-		branchExists := checkCmd.Run() == nil
-
-		var cmd *exec.Cmd
-
-		if branchExists {
-			cmd = exec.Command("git", "checkout", branchName)
-		} else {
-			cmd = exec.Command("git", "checkout", "-b", branchName)
-		}
-
-		err := cmd.Run()
-
-		if err != nil {
-			return errMsg(fmt.Errorf("failed to checkout branch %s: %v", branchName, err))
-		}
-
-		return tea.Quit()
-	}
-}
-
-func newCustomDelegate() list.DefaultDelegate {
-	d := list.NewDefaultDelegate()
-
-	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
-		Foreground(lipgloss.Color("5")).
-		Bold(true)
-
-	d.Styles.SelectedDesc = d.Styles.SelectedDesc.
-		Foreground(lipgloss.Color("7"))
-
-	d.Styles.NormalTitle = d.Styles.NormalTitle.
-		Foreground(lipgloss.Color("4")).
-		Bold(true)
-
-	d.Styles.NormalDesc = d.Styles.NormalDesc.
-		Foreground(lipgloss.Color("7"))
-
-	d.Styles.SelectedTitle = d.Styles.SelectedTitle.
-		BorderLeft(true).
-		BorderLeftForeground(lipgloss.Color("5"))
-
-	d.Styles.SelectedDesc = d.Styles.SelectedDesc.
-		BorderLeft(true).
-		BorderLeftForeground(lipgloss.Color("5"))
-
-	d.SetSpacing(0)
-
-	return d
-}
-
-type jiraTicketsMsg struct {
-	Key     string
-	Summary string
-}
 
 type item struct {
 	key     string
@@ -117,9 +45,9 @@ func fetchJiraTickets() tea.Cmd {
 			return errMsg(err)
 		}
 
-		newChoices := []jiraTicketsMsg{}
+		newChoices := []jira.JiraTicketsMsg{}
 		for _, issue := range j.Issues {
-			newChoices = append(newChoices, jiraTicketsMsg{
+			newChoices = append(newChoices, jira.JiraTicketsMsg{
 				Key:     issue.Key,
 				Summary: issue.Fields.Summary,
 			})
@@ -179,7 +107,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if selectedItem != nil {
 				if i, ok := selectedItem.(item); ok {
 					return m,
-						checkoutBranch(jiraTicketsMsg{
+						git_utils.CheckoutBranch(jira.JiraTicketsMsg{
 							Key:     i.key,
 							Summary: i.summary,
 						})
@@ -187,7 +115,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case []jiraTicketsMsg:
+	case []jira.JiraTicketsMsg:
 		items := []list.Item{}
 		for _, choice := range msg {
 			items = append(items, item{
@@ -195,7 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				summary: choice.Summary,
 			})
 		}
-		delegate := newCustomDelegate()
+		delegate := gui.NewCustomDelegate()
 		l := list.New(items, delegate, 0, 0)
 
 		l.SetShowStatusBar(false)

@@ -9,6 +9,11 @@ import (
 	"os"
 )
 
+type JiraTicketsMsg struct {
+	Key     string
+	Summary string
+}
+
 func GetJiraTickets() (JiraSearchResult, error) {
 	apiToken := os.Getenv("JIRA_API_TOKEN")
 	username := os.Getenv("JIRA_USERNAME")
