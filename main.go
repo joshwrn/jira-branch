@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/charmbracelet/bubbles/table"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
@@ -14,136 +16,234 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+type jiraTicketsMsg struct {
+	Key     string
+	Summary string
+}
 type model struct {
-	choices   []string
+	table     table.Model
 	cursor    int
 	selected  map[int]struct{}
 	isLoading bool
 	spinner   spinner.Model
-	quitting  bool
 	err       error
+	width     int
+	height    int
 }
 
-func initialModel() model {
-	sp := spinner.New()
-	sp.Spinner = spinner.MiniDot
-	sp.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
-	return model{
-		choices: []string{},
-
-		// A map which indicates which choices are selected. We're using
-		// the  map like a mathematical set. The keys refer to the indexes
-		// of the `choices` slice, above.
-		selected:  make(map[int]struct{}),
-		isLoading: true,
-		spinner:   sp,
-		quitting:  false,
-		err:       nil,
-	}
-}
+var baseStyle = lipgloss.NewStyle().
+	BorderStyle(lipgloss.NormalBorder()).
+	BorderForeground(lipgloss.Color("240"))
 
 type errMsg error
 
-type jiraTicketsMsg []string
+func fetchJiraTickets() tea.Cmd {
+	return func() tea.Msg {
+		j, err := jira.GetJiraTickets()
+		if err != nil {
+			return errMsg(err)
+		}
 
-func fetchJiraTickets() tea.Msg {
-	j, err := jira.GetJiraTickets()
-	if err != nil {
-		return errMsg(err)
+		newChoices := []jiraTicketsMsg{}
+		for _, issue := range j.Issues {
+			newChoices = append(newChoices, jiraTicketsMsg{
+				Key:     issue.Key,
+				Summary: issue.Fields.Summary,
+			})
+		}
+
+		return newChoices
 	}
+}
 
-	newChoices := []string{}
-	for _, issue := range j.Issues {
-		newChoices = append(newChoices, issue.Key+" - "+issue.Fields.Summary)
+func (m *model) updateTableSize() {
+	if m.width > 0 && m.height > 0 {
+		availableHeight := m.height
+		if availableHeight < 5 {
+			availableHeight = 5
+		}
+
+		totalBorderWidth := 8
+		availableWidth := m.width - totalBorderWidth
+
+		if availableWidth > 0 {
+			keyWidth := max(8, availableWidth*5/100)
+			summaryWidth := max(20, availableWidth*80/100)
+
+			cols := m.table.Columns()
+			if len(cols) > 0 {
+				cols[0].Width = keyWidth
+				cols[1].Width = summaryWidth
+				m.table.SetColumns(cols)
+			}
+		}
+
+		m.table.SetHeight(availableHeight)
 	}
+}
 
-	return jiraTicketsMsg(newChoices)
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.Batch(m.spinner.Tick, fetchJiraTickets)
+	return tea.Batch(
+		m.spinner.Tick,
+		fetchJiraTickets(),
+	)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
+	var cmd tea.Cmd
 
-	case jiraTicketsMsg:
-		m.choices = msg
-		m.isLoading = false
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		if !m.isLoading && m.err == nil {
+			m.updateTableSize()
+		}
 
 	case tea.KeyMsg:
+		if m.isLoading {
+			return m, nil
+		}
 
 		switch msg.String() {
-
-		case "ctrl+c", "q":
-			return m, tea.Quit
-
-		case "up", "k":
-			if m.cursor > 0 {
-				m.cursor--
-			}
-
-		case "down", "j":
-			if m.cursor < len(m.choices)-1 {
-				m.cursor++
-			}
-
-		case "enter", " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
+		case "esc":
+			if m.table.Focused() {
+				m.table.Blur()
 			} else {
-				m.selected[m.cursor] = struct{}{}
+				m.table.Focus()
 			}
+		case "q", "ctrl+c":
+			return m, tea.Quit
+		case "enter":
+			if len(m.table.SelectedRow()) > 0 {
+				return m, tea.Batch(
+					tea.Printf("Let's go to %s!", m.table.SelectedRow()[1]),
+				)
+			}
+		case "r":
+			m.isLoading = true
+			m.err = nil
+			return m, tea.Batch(
+				m.spinner.Tick,
+				fetchJiraTickets(),
+			)
 		}
-	default:
-		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
 
+	case []jiraTicketsMsg:
+		rows := []table.Row{}
+		for _, choice := range msg {
+			rows = append(rows, table.Row{choice.Key, choice.Summary})
+		}
+
+		t := table.New(
+			table.WithColumns([]table.Column{
+				{Title: "Select a ticket", Width: 10},
+				{Title: "", Width: 50},
+			}),
+			table.WithRows(rows),
+			table.WithFocused(true),
+			table.WithHeight(10),
+		)
+
+		s := table.DefaultStyles()
+
+		s.Header = s.Header.
+			Bold(false).
+			BorderStyle(lipgloss.NormalBorder()).
+			BorderBottom(true).
+			Height(0).
+			Padding(0).
+			Foreground(lipgloss.Color("7")).
+			Bold(true)
+
+		s.Selected = s.Selected.
+			UnsetForeground().
+			Foreground(lipgloss.Color("7")).
+			Background(lipgloss.Color("0")).
+			Bold(true)
+		t.SetStyles(s)
+
+		m.table = t
+		m.isLoading = false
+		m.updateTableSize()
+		return m, nil
+
+	case errMsg:
+		m.err = msg
+		m.isLoading = false
+		return m, nil
+
+	case spinner.TickMsg:
+		if m.isLoading {
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
 	}
 
-	// Return the updated model to the Bubble Tea runtime for processing.
-	// Note that we're not returning a command.
-	return m, nil
+	if !m.isLoading {
+		m.table, cmd = m.table.Update(msg)
+	}
+
+	return m, cmd
+
 }
 
 func (m model) View() string {
 	if m.isLoading {
-		return fmt.Sprintf("\n\n   %s Loading Tickets\n\n", m.spinner.View())
+		loadingText := fmt.Sprintf("%s %s", m.spinner.View(), "Loading Jira tickets...")
+
+		return fmt.Sprintf("\n%s\n\nPress q to quit", loadingText)
 	}
 
-	body := "Choose a ticket.\n\n"
+	if m.err != nil {
+		errorText := fmt.Sprintf("Error loading data: %v", m.err)
+		helpText := "Press 'r' to retry or 'q' to quit"
 
-	for i, choice := range m.choices {
-
-		cursor := " "
-		if m.cursor == i {
-			cursor = ">"
+		if m.width > 0 {
+			errorPadding := max(0, (m.width-len(errorText))/2)
+			helpPadding := max(0, (m.width-len(helpText))/2)
+			errorText = strings.Repeat(" ", errorPadding) + errorText
+			helpText = strings.Repeat(" ", helpPadding) + helpText
 		}
 
-		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "x"
-		}
-
-		body += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+		return fmt.Sprintf("\n%s\n\n%s\n", errorText, helpText)
 	}
 
-	body += "\nPress q to quit.\n"
-
-	return body
+	return m.table.View()
 }
 
 func main() {
-	// Load environment variables from .env file
+
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("Warning: .env file not found. Make sure you have set the required environment variables.")
 	}
 
-	p := tea.NewProgram(initialModel())
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+
+	emptyTable := table.New(
+		table.WithColumns([]table.Column{}),
+		table.WithRows([]table.Row{}),
+		table.WithHeight(10),
+	)
+
+	m := model{
+		table:     emptyTable,
+		spinner:   s,
+		isLoading: true,
+	}
+
+	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
-		fmt.Printf("Alas, there's been an error: %v", err)
+		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}
 }

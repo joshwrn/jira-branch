@@ -41,7 +41,7 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	// Add query parameters
 	q := req.URL.Query()
 	q.Add("jql", "assignee = currentUser()") // Get tickets assigned to you
-	q.Add("maxResults", "5")
+	q.Add("maxResults", "50")
 	req.URL.RawQuery = q.Encode()
 
 	// Make request
