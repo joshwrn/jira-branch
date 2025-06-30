@@ -117,7 +117,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						selected_branch := git_utils.FormatBranchName(selectedTicket)
 						m.view = "input"
 						m.input = gui.CreateBranchInput(selected_branch, m.width)
-						return m, nil
+						return m, textinput.Blink
 					}
 				}
 			}
@@ -200,8 +200,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.isLoading && m.view == "list" && m.isLoggedIn {
-		m.table, cmd = m.table.Update(msg)
+	if !m.isLoading && m.isLoggedIn {
+		if m.view == "list" {
+			m.table, cmd = m.table.Update(msg)
+		} else if m.view == "input" {
+			m.input, cmd = m.input.Update(msg)
+		}
 	}
 
 	return m, cmd
