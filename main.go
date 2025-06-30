@@ -12,7 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
 
-	git_utils "jira_cli/internal/git"
+	"jira_cli/internal/git_utils"
 	"jira_cli/internal/gui"
 	"jira_cli/internal/jira"
 	"jira_cli/internal/utils"
@@ -34,7 +34,7 @@ type model struct {
 
 type errMsg error
 
-func returnChoices() tea.Cmd {
+func returnChoices(m *model) tea.Cmd {
 	return func() tea.Msg {
 		j, err := jira.GetJiraTickets()
 		if err != nil {
@@ -88,7 +88,7 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		textinput.Blink,
-		returnChoices(),
+		returnChoices(&m),
 	)
 }
 
@@ -198,6 +198,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.isLoading {
+		_, authURL := jira.GetAuthUrlAndConfig()
+
+		line2 := lipgloss.NewStyle().Width(m.width / 2).
+			Foreground(lipgloss.Color("7")).
+			Faint(true).
+			Render(fmt.Sprintf(
+				"or open the following URL in your browser: \n\n%s",
+				authURL))
+
+		line1 := fmt.Sprintf("%s Opening browser for Atlassian authorization...",
+			m.spinner.View())
+
+		return fmt.Sprintf("\n%s\n\n%s",
+			line1,
+			line2)
+	}
+
 	if m.err != nil {
 		errorText := fmt.Sprintf("Error loading data: %v", m.err)
 		helpText := "Press 'r' to retry or 'q' to quit"
@@ -256,6 +274,7 @@ func main() {
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
+
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)

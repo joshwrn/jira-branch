@@ -1,12 +1,10 @@
 package jira
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 )
 
 type JiraTicketsMsg struct {
@@ -18,29 +16,31 @@ type JiraTicketsMsg struct {
 }
 
 func GetJiraTickets() (JiraSearchResult, error) {
-	apiToken := os.Getenv("JIRA_API_TOKEN")
-	username := os.Getenv("JIRA_USERNAME")
-	jiraUrl := os.Getenv("JIRA_URL")
+	token, err := getToken()
+	if err != nil {
+		fmt.Println("err-getToken", err)
+		return JiraSearchResult{}, err
+	}
+	storeTokens("jira-cli", "jira-cli", TokenPair{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		ExpiresAt:    token.Expiry.Unix(),
+		TokenType:    token.TokenType,
+	})
 
-	if apiToken == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_API_TOKEN environment variable is required")
-	}
-	if username == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_USERNAME environment variable is required")
-	}
-	if jiraUrl == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_URL environment variable is required")
+	cloudId, err := getCloudId(token)
+	if err != nil {
+		return JiraSearchResult{}, err
 	}
 
-	url := jiraUrl + "/rest/api/3/search"
+	url := fmt.Sprintf("https://api.atlassian.com/ex/jira/%s/rest/api/3/search", cloudId)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return JiraSearchResult{}, err
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + apiToken))
-	req.Header.Add("Authorization", "Basic "+auth)
+	req.Header.Add("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Add("Accept", "application/json")
 
 	q := req.URL.Query()
@@ -66,8 +66,6 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	if err != nil {
 		return JiraSearchResult{}, err
 	}
-
-	fmt.Println(result)
 
 	return result, nil
 }
