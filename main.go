@@ -176,7 +176,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			BorderBottom(true).
 			Bold(false)
 		s.Selected = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("57")).
+			Foreground(lipgloss.Color("12")).
 			Background(lipgloss.Color("0")).
 			Bold(false)
 
