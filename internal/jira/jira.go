@@ -1,12 +1,12 @@
 package jira
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+
+	"golang.org/x/oauth2"
 )
 
 type JiraTicketsMsg struct {
@@ -17,30 +17,28 @@ type JiraTicketsMsg struct {
 	Created string
 }
 
-func GetJiraTickets() (JiraSearchResult, error) {
-	apiToken := os.Getenv("JIRA_API_TOKEN")
-	username := os.Getenv("JIRA_USERNAME")
-	jiraUrl := os.Getenv("JIRA_URL")
+func GetJiraTickets(token *oauth2.Token) ([]JiraTicketsMsg, error) {
 
-	if apiToken == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_API_TOKEN environment variable is required")
-	}
-	if username == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_USERNAME environment variable is required")
-	}
-	if jiraUrl == "" {
-		return JiraSearchResult{}, fmt.Errorf("JIRA_URL environment variable is required")
+	storeTokens("jira-cli", "jira-cli", TokenPair{
+		AccessToken:  token.AccessToken,
+		RefreshToken: token.RefreshToken,
+		ExpiresAt:    token.Expiry.Unix(),
+		TokenType:    token.TokenType,
+	})
+
+	cloudId, err := getCloudId(token)
+	if err != nil {
+		return []JiraTicketsMsg{}, err
 	}
 
-	url := jiraUrl + "/rest/api/3/search"
+	url := fmt.Sprintf("https://api.atlassian.com/ex/jira/%s/rest/api/3/search", cloudId)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(username + ":" + apiToken))
-	req.Header.Add("Authorization", "Basic "+auth)
+	req.Header.Add("Authorization", "Bearer "+token.AccessToken)
 	req.Header.Add("Accept", "application/json")
 
 	q := req.URL.Query()
@@ -52,24 +50,33 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
 	var result JiraSearchResult
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
-	fmt.Println(result)
+	newChoices := []JiraTicketsMsg{}
+	for _, issue := range result.Issues {
+		newChoices = append(newChoices, JiraTicketsMsg{
+			Key:     issue.Key,
+			Type:    issue.Fields.IssueType.Name,
+			Summary: issue.Fields.Summary,
+			Status:  issue.Fields.Status.Name,
+			Created: issue.Fields.Created,
+		})
+	}
 
-	return result, nil
+	return newChoices, nil
 }
 
 type JiraSearchResult struct {
