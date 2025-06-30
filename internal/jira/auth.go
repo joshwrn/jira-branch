@@ -52,12 +52,10 @@ func getCloudId(token *oauth2.Token) (string, error) {
 	return resources[0].ID, nil
 }
 
-func getToken() (*oauth2.Token, error) {
+func GetToken() (*oauth2.Token, error) {
 	config, authURL := GetAuthUrlAndConfig()
 
 	storedTokens, err := loadTokens("jira-cli", "jira-cli")
-	fmt.Println("err", err)
-	fmt.Println("storedTokens", storedTokens)
 	if err == nil {
 		token := &oauth2.Token{
 			AccessToken:  storedTokens.AccessToken,
@@ -70,7 +68,6 @@ func getToken() (*oauth2.Token, error) {
 
 		newToken, err := tokenSource.Token()
 
-		fmt.Println("newToken", newToken.RefreshToken)
 		if err == nil {
 			return newToken, nil
 		}

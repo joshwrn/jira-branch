@@ -18,43 +18,23 @@ import (
 	"jira_cli/internal/utils"
 
 	"github.com/charmbracelet/lipgloss"
+	"golang.org/x/oauth2"
 )
 
 type model struct {
-	table     table.Model
-	isLoading bool
-	spinner   spinner.Model
-	err       error
-	width     int
-	height    int
-	view      string
-	input     textinput.Model
-	tickets   []jira.JiraTicketsMsg
+	table      table.Model
+	isLoading  bool
+	isLoggedIn bool
+	spinner    spinner.Model
+	err        error
+	width      int
+	height     int
+	view       string
+	input      textinput.Model
+	tickets    []jira.JiraTicketsMsg
 }
 
 type errMsg error
-
-func returnChoices(m *model) tea.Cmd {
-	return func() tea.Msg {
-		j, err := jira.GetJiraTickets()
-		if err != nil {
-			return errMsg(err)
-		}
-
-		newChoices := []jira.JiraTicketsMsg{}
-		for _, issue := range j.Issues {
-			newChoices = append(newChoices, jira.JiraTicketsMsg{
-				Key:     issue.Key,
-				Type:    issue.Fields.IssueType.Name,
-				Summary: issue.Fields.Summary,
-				Status:  issue.Fields.Status.Name,
-				Created: issue.Fields.Created,
-			})
-		}
-
-		return newChoices
-	}
-}
 
 func (m *model) updateTableSize() {
 	if m.width > 0 && m.height > 0 {
@@ -88,8 +68,26 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		textinput.Blink,
-		returnChoices(&m),
+		func() tea.Msg {
+			token, err := jira.GetToken()
+			if err != nil {
+				return errMsg(err)
+			}
+			return token
+		},
 	)
+}
+
+type ticketsMsg struct {
+	tickets []jira.JiraTicketsMsg
+	err     error
+}
+
+func fetchTickets(token *oauth2.Token) tea.Cmd {
+	return func() tea.Msg {
+		tickets, err := jira.GetJiraTickets(token)
+		return ticketsMsg{tickets: tickets, err: err}
+	}
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -99,7 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if !m.isLoading && m.err == nil {
+		if !m.isLoading && m.err == nil && m.isLoggedIn {
 			m.updateTableSize()
 		}
 
@@ -138,8 +136,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
-	case []jira.JiraTicketsMsg:
-		m.tickets = msg
+	case *oauth2.Token:
+		m.isLoggedIn = true
+		m.isLoading = true
+		return m, fetchTickets(msg)
+
+	case ticketsMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.isLoading = false
+			return m, nil
+		}
+
+		m.tickets = msg.tickets
 
 		columns := []table.Column{
 			{Title: "Key", Width: 0},
@@ -150,7 +159,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		rows := []table.Row{}
-		for _, ticket := range msg {
+		for _, ticket := range m.tickets {
 			rows = append(rows, table.Row{ticket.Key, ticket.Type, ticket.Summary, ticket.Status, utils.FormatRelativeTime(ticket.Created)})
 		}
 
@@ -175,6 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.table = t
 		m.isLoading = false
+		m.isLoggedIn = true
 		m.updateTableSize()
 		return m, nil
 
@@ -190,7 +200,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.isLoading && m.view == "list" {
+	if !m.isLoading && m.view == "list" && m.isLoggedIn {
 		m.table, cmd = m.table.Update(msg)
 	}
 
@@ -198,7 +208,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.isLoading {
+	if !m.isLoggedIn {
 		_, authURL := jira.GetAuthUrlAndConfig()
 
 		line2 := lipgloss.NewStyle().Width(m.width / 2).
@@ -265,12 +275,13 @@ func main() {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	m := model{
-		table:     table.New(),
-		spinner:   s,
-		isLoading: true,
-		view:      "list",
-		input:     textinput.New(),
-		tickets:   []jira.JiraTicketsMsg{},
+		table:      table.New(),
+		spinner:    s,
+		isLoading:  true,
+		isLoggedIn: false,
+		view:       "list",
+		input:      textinput.New(),
+		tickets:    []jira.JiraTicketsMsg{},
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

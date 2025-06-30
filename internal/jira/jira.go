@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"golang.org/x/oauth2"
 )
 
 type JiraTicketsMsg struct {
@@ -15,12 +17,8 @@ type JiraTicketsMsg struct {
 	Created string
 }
 
-func GetJiraTickets() (JiraSearchResult, error) {
-	token, err := getToken()
-	if err != nil {
-		fmt.Println("err-getToken", err)
-		return JiraSearchResult{}, err
-	}
+func GetJiraTickets(token *oauth2.Token) ([]JiraTicketsMsg, error) {
+
 	storeTokens("jira-cli", "jira-cli", TokenPair{
 		AccessToken:  token.AccessToken,
 		RefreshToken: token.RefreshToken,
@@ -30,14 +28,14 @@ func GetJiraTickets() (JiraSearchResult, error) {
 
 	cloudId, err := getCloudId(token)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
 	url := fmt.Sprintf("https://api.atlassian.com/ex/jira/%s/rest/api/3/search", cloudId)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
 	req.Header.Add("Authorization", "Bearer "+token.AccessToken)
@@ -52,22 +50,33 @@ func GetJiraTickets() (JiraSearchResult, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
 	var result JiraSearchResult
 	err = json.Unmarshal(body, &result)
 	if err != nil {
-		return JiraSearchResult{}, err
+		return []JiraTicketsMsg{}, err
 	}
 
-	return result, nil
+	newChoices := []JiraTicketsMsg{}
+	for _, issue := range result.Issues {
+		newChoices = append(newChoices, JiraTicketsMsg{
+			Key:     issue.Key,
+			Type:    issue.Fields.IssueType.Name,
+			Summary: issue.Fields.Summary,
+			Status:  issue.Fields.Status.Name,
+			Created: issue.Fields.Created,
+		})
+	}
+
+	return newChoices, nil
 }
 
 type JiraSearchResult struct {
