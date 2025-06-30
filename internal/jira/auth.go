@@ -72,7 +72,6 @@ func GetToken() (*oauth2.Token, error) {
 			return newToken, nil
 		}
 
-		fmt.Println("failed to get/refresh token: %w", err)
 	}
 
 	codeCh := make(chan string, 1)
