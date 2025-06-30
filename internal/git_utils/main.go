@@ -15,7 +15,7 @@ type errMsg error
 func FormatBranchName(ticket jira.JiraTicketsMsg) string {
 	prefix := "feature/"
 	if ticket.Type == "Bug" {
-		prefix = "bug/"
+		prefix = "bugfix/"
 	}
 
 	branchName := prefix + ticket.Key + "-" + strings.ToLower(ticket.Summary)
