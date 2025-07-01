@@ -5,7 +5,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"jira_cli/internal/jira"
+	"github.com/joshwrn/jira-branch/internal/jira"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

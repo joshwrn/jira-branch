@@ -12,10 +12,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joho/godotenv"
 
-	"jira_cli/internal/git_utils"
-	"jira_cli/internal/gui"
-	"jira_cli/internal/jira"
-	"jira_cli/internal/utils"
+	"github.com/joshwrn/jira-branch/internal/git_utils"
+	"github.com/joshwrn/jira-branch/internal/gui"
+	"github.com/joshwrn/jira-branch/internal/jira"
+	"github.com/joshwrn/jira-branch/internal/utils"
 
 	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/oauth2"

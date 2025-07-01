@@ -1,4 +1,4 @@
-module jira_cli
+module github.com/joshwrn/jira-branch
 
 go 1.24.4
 
