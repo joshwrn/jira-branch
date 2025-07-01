@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/joho/godotenv"
 
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/gui"
@@ -18,7 +17,6 @@ import (
 	"github.com/joshwrn/jira-branch/internal/utils"
 
 	"github.com/charmbracelet/lipgloss"
-	"golang.org/x/oauth2"
 )
 
 type model struct {
@@ -32,6 +30,11 @@ type model struct {
 	view       string
 	input      textinput.Model
 	tickets    []jira.JiraTicketsMsg
+
+	// Credential input fields
+	credentialInputs []textinput.Model
+	currentField     int
+	credentials      jira.Credentials
 }
 
 type errMsg error
@@ -57,36 +60,48 @@ func (m *model) updateTableSize() {
 	}
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		m.spinner.Tick,
 		textinput.Blink,
 		func() tea.Msg {
-			token, err := jira.GetToken()
+			credentials, err := jira.LoadCredentials()
 			if err != nil {
-				return errMsg(err)
+				return credentialsNeededMsg{}
 			}
-			return token
+			if err := jira.ValidateCredentials(credentials); err != nil {
+				return credentialsNeededMsg{}
+			}
+			return credentials
 		},
 	)
 }
+
+type credentialsNeededMsg struct{}
 
 type ticketsMsg struct {
 	tickets []jira.JiraTicketsMsg
 	err     error
 }
 
-func fetchTickets(token *oauth2.Token) tea.Cmd {
+func fetchTickets(credentials jira.Credentials) tea.Cmd {
 	return func() tea.Msg {
-		tickets, err := jira.GetJiraTickets(token)
+		tickets, err := jira.GetJiraTickets(credentials)
 		return ticketsMsg{tickets: tickets, err: err}
+	}
+}
+
+func validateAndStoreCredentials(credentials jira.Credentials) tea.Cmd {
+	return func() tea.Msg {
+		if err := jira.ValidateCredentials(credentials); err != nil {
+			return errMsg(err)
+		}
+
+		if err := jira.StoreCredentials(credentials); err != nil {
+			return errMsg(fmt.Errorf("failed to store credentials: %v", err))
+		}
+
+		return credentials
 	}
 }
 
@@ -102,14 +117,59 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
-			if !m.isLoggedIn && msg.String() == "ctrl+c" {
-				return m, nil
-			}
+		if m.isLoggedIn && msg.String() == "q" {
+			return m, nil
+		}
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
 
 		switch m.view {
+		case "credentials":
+			switch msg.String() {
+			case "tab", "shift+tab", "enter", "up", "down":
+				s := msg.String()
+
+				if s == "enter" && m.currentField == len(m.credentialInputs)-1 {
+					m.credentials = jira.Credentials{
+						JiraURL:  strings.TrimSpace(m.credentialInputs[0].Value()),
+						Email:    strings.TrimSpace(m.credentialInputs[1].Value()),
+						APIToken: strings.TrimSpace(m.credentialInputs[2].Value()),
+					}
+
+					if m.credentials.JiraURL == "" || m.credentials.Email == "" || m.credentials.APIToken == "" {
+						m.err = errMsg(fmt.Errorf("all fields are required"))
+						return m, nil
+					}
+
+					m.isLoading = true
+					m.err = nil
+					return m, validateAndStoreCredentials(m.credentials)
+				}
+
+				if s == "up" || s == "shift+tab" {
+					m.currentField--
+				} else {
+					m.currentField++
+				}
+
+				if m.currentField > len(m.credentialInputs)-1 {
+					m.currentField = 0
+				} else if m.currentField < 0 {
+					m.currentField = len(m.credentialInputs) - 1
+				}
+
+				for i := 0; i < len(m.credentialInputs); i++ {
+					if i == m.currentField {
+						m.credentialInputs[i].Focus()
+					} else {
+						m.credentialInputs[i].Blur()
+					}
+				}
+
+				return m, textinput.Blink
+			}
+
 		case "list":
 			switch msg.String() {
 			case "enter":
@@ -139,9 +199,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 
-	case *oauth2.Token:
+	case credentialsNeededMsg:
+		m.view = "credentials"
+		m.credentialInputs = gui.CreateCredentialInputs(m.width)
+		m.currentField = 0
+		return m, textinput.Blink
+
+	case jira.Credentials:
+		m.credentials = msg
 		m.isLoggedIn = true
 		m.isLoading = true
+		m.view = "list"
 		return m, fetchTickets(msg)
 
 	case ticketsMsg:
@@ -203,50 +271,79 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if !m.isLoading && m.isLoggedIn {
-		if m.view == "list" {
-			m.table, cmd = m.table.Update(msg)
-		} else if m.view == "input" {
-			m.input, cmd = m.input.Update(msg)
-		}
+	if !m.isLoading && m.isLoggedIn && m.view == "list" {
+		m.table, cmd = m.table.Update(msg)
+	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
+		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
+	} else if m.view == "input" {
+		m.input, cmd = m.input.Update(msg)
 	}
 
 	return m, cmd
 }
 
 func (m model) View() string {
-	if !m.isLoggedIn {
-		_, authURL := jira.GetAuthUrlAndConfig()
+	if m.view == "credentials" {
+		var b strings.Builder
 
+		b.WriteString("\n")
+		b.WriteString(lipgloss.
+			NewStyle().
+			Foreground(lipgloss.Color("7")).
+			Render("Generate an API token at: "))
+		b.WriteString(
+			lipgloss.
+				NewStyle().
+				Foreground(lipgloss.Color("4")).
+				Underline(true).
+				Render("https://id.atlassian.com/manage-profile/security/api-tokens"))
+
+		b.WriteString("\n\n")
+
+		b.WriteString(gui.FaintWhiteText.
+			Render(`If you choose "API token with scopes" give it the "read:jira-work" scope.`))
+
+		b.WriteString("\n\n")
+
+		if m.err != nil {
+			b.WriteString(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
+			b.WriteString("\n\n")
+		}
+
+		b.WriteString(m.credentialInputs[0].View())
+		b.WriteString("\n")
+		b.WriteString(m.credentialInputs[1].View())
+		b.WriteString("\n")
+		b.WriteString(m.credentialInputs[2].View())
+		b.WriteString("\n\n")
+
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "tab", Desc: "Navigate"},
+			{Key: "enter", Desc: "Submit"},
+			{Key: "ctrl+c", Desc: "Quit"},
+		}))
+
+		return b.String()
+	}
+
+	if !m.isLoggedIn && m.isLoading {
 		line1 := fmt.Sprintf(
-			"%s Opening browser for Atlassian authorization...",
+			"%s Validating credentials...",
 			m.spinner.View(),
 		)
 
-		line2 :=
-			gui.FaintWhiteText.
-				Width(m.width / 2).
-				Render(fmt.Sprintf(
-					"or copy/paste the following URL into your browser: \n\n%s",
-					authURL,
-				))
-
-		line3 := gui.FaintWhiteText.
-			Render("Press") +
-			" q " +
-			gui.FaintWhiteText.
-				Render("to quit")
+		line2 := gui.FaintWhiteText.
+			Render("Press ctrl+c to quit")
 
 		return fmt.Sprintf(
-			"\n%s\n\n%s\n\n%s",
+			"\n%s\n\n%s",
 			line1,
 			line2,
-			line3,
 		)
 	}
 
 	if m.err != nil {
-		errorText := fmt.Sprintf("Error loading data: %v", m.err)
+		errorText := fmt.Sprintf("Error: %v", m.err)
 		helpText := "Press 'r' to retry or 'q' to quit"
 
 		if m.width > 0 {
@@ -285,22 +382,20 @@ func (m model) View() string {
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
-		fmt.Println("Warning: .env file not found. Make sure you have set the required environment variables.")
-	}
-
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	m := model{
-		table:      table.New(),
-		spinner:    s,
-		isLoading:  true,
-		isLoggedIn: false,
-		view:       "list",
-		input:      textinput.New(),
-		tickets:    []jira.JiraTicketsMsg{},
+		table:            table.New(),
+		spinner:          s,
+		isLoading:        true,
+		isLoggedIn:       false,
+		view:             "list",
+		input:            textinput.New(),
+		tickets:          []jira.JiraTicketsMsg{},
+		credentialInputs: []textinput.Model{},
+		currentField:     0,
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

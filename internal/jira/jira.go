@@ -1,12 +1,11 @@
 package jira
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-
-	"golang.org/x/oauth2"
 )
 
 type JiraTicketsMsg struct {
@@ -17,28 +16,17 @@ type JiraTicketsMsg struct {
 	Created string
 }
 
-func GetJiraTickets(token *oauth2.Token) ([]JiraTicketsMsg, error) {
-
-	storeTokens("jira-cli", "jira-cli", TokenPair{
-		AccessToken:  token.AccessToken,
-		RefreshToken: token.RefreshToken,
-		ExpiresAt:    token.Expiry.Unix(),
-		TokenType:    token.TokenType,
-	})
-
-	cloudId, err := getCloudId(token)
-	if err != nil {
-		return []JiraTicketsMsg{}, err
-	}
-
-	url := fmt.Sprintf("https://api.atlassian.com/ex/jira/%s/rest/api/3/search", cloudId)
+func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
+	url := fmt.Sprintf("%s/rest/api/3/search", credentials.JiraURL)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return []JiraTicketsMsg{}, err
 	}
 
-	req.Header.Add("Authorization", "Bearer "+token.AccessToken)
+	auth := base64.StdEncoding.EncodeToString([]byte(credentials.Email + ":" + credentials.APIToken))
+
+	req.Header.Add("Authorization", "Basic "+auth)
 	req.Header.Add("Accept", "application/json")
 
 	q := req.URL.Query()
@@ -53,6 +41,14 @@ func GetJiraTickets(token *oauth2.Token) ([]JiraTicketsMsg, error) {
 		return []JiraTicketsMsg{}, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return []JiraTicketsMsg{}, fmt.Errorf("authentication failed: check your credentials")
+	}
+
+	if resp.StatusCode != 200 {
+		return []JiraTicketsMsg{}, fmt.Errorf("jira API error: %d", resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
