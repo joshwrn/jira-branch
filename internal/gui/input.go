@@ -16,3 +16,7 @@ func CreateBranchInput(selected_branch string, width int) textinput.Model {
 
 	return ti
 }
+
+var FaintWhiteText = lipgloss.NewStyle().
+	Foreground(lipgloss.Color("7")).
+	Faint(true)

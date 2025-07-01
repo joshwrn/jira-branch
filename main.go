@@ -103,6 +103,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if msg.String() == "q" || msg.String() == "ctrl+c" {
+			if !m.isLoggedIn && msg.String() == "ctrl+c" {
+				return m, nil
+			}
 			return m, tea.Quit
 		}
 
@@ -215,19 +218,31 @@ func (m model) View() string {
 	if !m.isLoggedIn {
 		_, authURL := jira.GetAuthUrlAndConfig()
 
-		line2 := lipgloss.NewStyle().Width(m.width / 2).
-			Foreground(lipgloss.Color("7")).
-			Faint(true).
-			Render(fmt.Sprintf(
-				"or open the following URL in your browser: \n\n%s",
-				authURL))
+		line1 := fmt.Sprintf(
+			"%s Opening browser for Atlassian authorization...",
+			m.spinner.View(),
+		)
 
-		line1 := fmt.Sprintf("%s Opening browser for Atlassian authorization...",
-			m.spinner.View())
+		line2 :=
+			gui.FaintWhiteText.
+				Width(m.width / 2).
+				Render(fmt.Sprintf(
+					"or copy/paste the following URL into your browser: \n\n%s",
+					authURL,
+				))
 
-		return fmt.Sprintf("\n%s\n\n%s",
+		line3 := gui.FaintWhiteText.
+			Render("Press") +
+			" q " +
+			gui.FaintWhiteText.
+				Render("to quit")
+
+		return fmt.Sprintf(
+			"\n%s\n\n%s\n\n%s",
 			line1,
-			line2)
+			line2,
+			line3,
+		)
 	}
 
 	if m.err != nil {
@@ -251,7 +266,7 @@ func (m model) View() string {
 	}
 
 	if m.view == "input" {
-		faintStyle := lipgloss.NewStyle().Faint(true)
+		faintStyle := gui.FaintWhiteText
 		return fmt.Sprintf(
 			"%s\n\nenter %s %s esc %s %s q/ctrl+c %s",
 			m.input.View(),
