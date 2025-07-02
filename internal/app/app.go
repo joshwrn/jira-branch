@@ -40,6 +40,46 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	// global messages
+	switch msg := msg.(type) {
+	case jira.Credentials:
+		m.credentials = msg
+		m.isLoggedIn = true
+		m.isLoading = true
+		m.view = "list"
+		return m, func() tea.Msg {
+			tickets, err := jira.GetJiraTickets(msg)
+			return ticketsMsg{tickets: tickets, err: err}
+		}
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		if !m.isLoading && m.err == nil && m.isLoggedIn {
+			m.updateTableSize()
+		}
+
+	case tea.KeyMsg:
+		if m.isLoggedIn && msg.String() == "q" && m.view == "list" {
+			return m, tea.Quit
+		}
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+
+	case errMsg:
+		m.err = msg
+		m.isLoading = false
+		return m, nil
+
+	case spinner.TickMsg:
+		if m.isLoading {
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
+	}
+
+	// view specific messages
 	switch m.view {
 	case "list":
 		m, cmd, shouldReturn := updateList(m, msg)
@@ -70,45 +110,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// global messages
-	switch msg := msg.(type) {
-	case jira.Credentials:
-		m.credentials = msg
-		m.isLoggedIn = true
-		m.isLoading = true
-		m.view = "list"
-		return m, func() tea.Msg {
-			tickets, err := jira.GetJiraTickets(msg)
-			return ticketsMsg{tickets: tickets, err: err}
-		}
-
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		if !m.isLoading && m.err == nil && m.isLoggedIn {
-			m.updateTableSize()
-		}
-
-	case tea.KeyMsg:
-		if m.isLoggedIn && msg.String() == "q" {
-			return m, nil
-		}
-		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
-		}
-
-	case errMsg:
-		m.err = msg
-		m.isLoading = false
-		return m, nil
-
-	case spinner.TickMsg:
-		if m.isLoading {
-			m.spinner, cmd = m.spinner.Update(msg)
-			return m, cmd
-		}
-	}
-
+	// view specific updates
 	if !m.isLoading && m.isLoggedIn && m.view == "list" {
 		m.table, cmd = m.table.Update(msg)
 	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
@@ -121,7 +123,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-
 	if m.view == "credentials" {
 		return viewCredentials(m)
 	}
@@ -170,7 +171,7 @@ func (m model) View() string {
 		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "enter", Desc: "Checkout branch"},
 			{Key: "esc", Desc: "Go back"},
-			{Key: "q/ctrl+c", Desc: "Quit"},
+			{Key: "ctrl+c", Desc: "Quit"},
 		}))
 
 		return b.String()
