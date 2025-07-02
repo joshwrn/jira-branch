@@ -121,6 +121,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+
+	if m.view == "credentials" {
+		return viewCredentials(m)
+	}
+
 	if m.err != nil {
 		b := strings.Builder{}
 		b.WriteString(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
@@ -130,10 +135,6 @@ func (m model) View() string {
 		}))
 
 		return b.String()
-	}
-
-	if m.view == "credentials" {
-		return viewCredentials(m)
 	}
 
 	if !m.isLoggedIn && m.isLoading {
