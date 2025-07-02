@@ -24,6 +24,7 @@ func StoreCredentials(credentials Credentials) error {
 }
 
 func LoadCredentials() (Credentials, error) {
+	keyring.Delete("jira-cli", "credentials")
 	var credentials Credentials
 	data, err := keyring.Get("jira-cli", "credentials")
 	if err != nil {

@@ -31,11 +31,13 @@ func CreateCredentialInputs(width int) []textinput.Model {
 
 	inputs[0] = CreateBaseCredentialInput(width)
 	inputs[0].Placeholder = "https://your-company.atlassian.net"
+	inputs[0].SetValue("https://m-xr.atlassian.net")
 	inputs[0].Prompt = "Jira URL: "
 	inputs[0].Focus()
 
 	inputs[1] = CreateBaseCredentialInput(width)
 	inputs[1].Placeholder = "your-email@company.com"
+	inputs[1].SetValue("josh@m-xr.com")
 	inputs[1].Prompt = "Email: "
 
 	inputs[2] = CreateBaseCredentialInput(width)
