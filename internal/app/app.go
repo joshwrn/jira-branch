@@ -37,20 +37,6 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
-type credentialsNeededMsg struct{}
-
-type ticketsMsg struct {
-	tickets []jira.JiraTicketsMsg
-	err     error
-}
-
-func fetchTickets(credentials jira.Credentials) tea.Cmd {
-	return func() tea.Msg {
-		tickets, err := jira.GetJiraTickets(credentials)
-		return ticketsMsg{tickets: tickets, err: err}
-	}
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
@@ -91,7 +77,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.isLoggedIn = true
 		m.isLoading = true
 		m.view = "list"
-		return m, fetchTickets(msg)
+		return m, func() tea.Msg {
+			tickets, err := jira.GetJiraTickets(msg)
+			return ticketsMsg{tickets: tickets, err: err}
+		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
@@ -132,57 +121,58 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if m.err != nil {
+		b := strings.Builder{}
+		b.WriteString(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
+		b.WriteString("\n\n")
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "q/ctrl+c", Desc: "Quit"},
+		}))
+
+		return b.String()
+	}
+
 	if m.view == "credentials" {
 		return viewCredentials(m)
 	}
 
 	if !m.isLoggedIn && m.isLoading {
-		line1 := fmt.Sprintf(
-			"%s Validating credentials...",
-			m.spinner.View(),
-		)
+		b := strings.Builder{}
+		b.WriteString(m.spinner.View())
+		b.WriteString(" ")
+		b.WriteString("Validating credentials...")
+		b.WriteString("\n\n")
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "q/ctrl+c", Desc: "Quit"},
+		}))
 
-		line2 := gui.FaintWhiteText.
-			Render("Press ctrl+c to quit")
-
-		return fmt.Sprintf(
-			"\n%s\n\n%s",
-			line1,
-			line2,
-		)
-	}
-
-	if m.err != nil {
-		errorText := fmt.Sprintf("Error: %v", m.err)
-		helpText := "Press 'r' to retry or 'q' to quit"
-
-		if m.width > 0 {
-			errorPadding := max(0, (m.width-len(errorText))/2)
-			helpPadding := max(0, (m.width-len(helpText))/2)
-			errorText = strings.Repeat(" ", errorPadding) + errorText
-			helpText = strings.Repeat(" ", helpPadding) + helpText
-		}
-
-		return fmt.Sprintf("\n%s\n\n%s\n", errorText, helpText)
+		return b.String()
 	}
 
 	if m.isLoading {
-		loadingText := fmt.Sprintf("%s %s", m.spinner.View(), "Loading Jira tickets...")
+		b := strings.Builder{}
+		b.WriteString(m.spinner.View())
+		b.WriteString(" ")
+		b.WriteString("Loading Jira tickets...")
+		b.WriteString("\n\n")
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "q/ctrl+c", Desc: "Quit"},
+		}))
 
-		return fmt.Sprintf("\n%s\n\nPress q to quit", loadingText)
+		return b.String()
 	}
 
 	if m.view == "input" {
-		faintStyle := gui.FaintWhiteText
-		return fmt.Sprintf(
-			"%s\n\nenter %s %s esc %s %s q/ctrl+c %s",
-			m.input.View(),
-			faintStyle.Render("checkout branch"),
-			faintStyle.Render("•"),
-			faintStyle.Render("go back"),
-			faintStyle.Render("•"),
-			faintStyle.Render("quit"),
-		)
+		b := strings.Builder{}
+		b.WriteString(m.input.View())
+		b.WriteString("\n\n")
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "enter", Desc: "Checkout branch"},
+			{Key: "esc", Desc: "Go back"},
+			{Key: "q/ctrl+c", Desc: "Quit"},
+		}))
+
+		return b.String()
 	}
 
 	return lipgloss.NewStyle().

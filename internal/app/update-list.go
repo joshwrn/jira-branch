@@ -7,8 +7,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/gui"
+	"github.com/joshwrn/jira-branch/internal/jira"
 	"github.com/joshwrn/jira-branch/internal/utils"
 )
+
+type ticketsMsg struct {
+	tickets []jira.JiraTicketsMsg
+	err     error
+}
 
 func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 	switch msg := msg.(type) {

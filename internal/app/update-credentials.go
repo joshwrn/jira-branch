@@ -9,6 +9,8 @@ import (
 	"github.com/joshwrn/jira-branch/internal/jira"
 )
 
+type credentialsNeededMsg struct{}
+
 func validateAndStoreCredentials(credentials jira.Credentials) tea.Cmd {
 	return func() tea.Msg {
 		if err := jira.ValidateCredentials(credentials); err != nil {
