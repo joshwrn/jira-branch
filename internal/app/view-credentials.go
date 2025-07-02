@@ -27,11 +27,11 @@ func CreateCredentialInputs(width int) []textinput.Model {
 	jira_api_token := os.Getenv("JIRA_API_TOKEN")
 
 	inputs[0] = CreateBaseCredentialInput(width)
-	inputs[0].Placeholder = "https://your-company.atlassian.net"
+	inputs[0].Placeholder = "your-company.atlassian.net"
 	if jira_url != "" {
 		inputs[0].SetValue(jira_url)
 	}
-	inputs[0].Prompt = "Jira URL: "
+	inputs[0].Prompt = "Atlassian URL: "
 	inputs[0].Focus()
 
 	inputs[1] = CreateBaseCredentialInput(width)

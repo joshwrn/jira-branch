@@ -34,7 +34,8 @@ func updateCredentials(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 
 			if s == "enter" && m.currentField == len(m.credentialInputs)-1 {
 				m.credentials = jira.Credentials{
-					JiraURL:  strings.TrimSpace(m.credentialInputs[0].Value()),
+					JiraURL: "https://" +
+						strings.TrimSpace(m.credentialInputs[0].Value()),
 					Email:    strings.TrimSpace(m.credentialInputs[1].Value()),
 					APIToken: strings.TrimSpace(m.credentialInputs[2].Value()),
 				}
