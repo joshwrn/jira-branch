@@ -9,6 +9,7 @@ import (
 	"github.com/joshwrn/jira-branch/internal/gui"
 	"github.com/joshwrn/jira-branch/internal/jira"
 	"github.com/joshwrn/jira-branch/internal/utils"
+	"github.com/zalando/go-keyring"
 )
 
 type ticketsMsg struct {
@@ -20,6 +21,13 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "S":
+			m.view = "credentials"
+			m.credentialInputs = CreateCredentialInputs(m.width)
+			m.currentField = 0
+			m.isLoggedIn = false
+			keyring.Delete("jira-cli", "credentials")
+			return m, textinput.Blink, true
 		case "enter":
 			if m.view == "list" && len(m.tickets) > 0 {
 				selectedRow := m.table.Cursor()
