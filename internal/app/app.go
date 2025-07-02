@@ -14,7 +14,6 @@ import (
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/gui"
 	"github.com/joshwrn/jira-branch/internal/jira"
-	"github.com/joshwrn/jira-branch/internal/utils"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -55,7 +54,45 @@ func fetchTickets(credentials jira.Credentials) tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	switch m.view {
+	case "list":
+		m, cmd, shouldReturn := updateList(m, msg)
+		if shouldReturn {
+			return m, cmd
+		}
+	case "credentials":
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			m, cmd, shouldReturn := updateCredentials(m, msg)
+			if shouldReturn {
+				return m, cmd
+			}
+		}
+	case "input":
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "enter":
+				branchName := m.input.Value()
+				return m, git_utils.CheckoutBranch(branchName)
+			case "esc":
+				m.view = "list"
+				return m, nil
+			}
+			m.input, cmd = m.input.Update(msg)
+			return m, cmd
+		}
+	}
+
+	// global messages
 	switch msg := msg.(type) {
+	case jira.Credentials:
+		m.credentials = msg
+		m.isLoggedIn = true
+		m.isLoading = true
+		m.view = "list"
+		return m, fetchTickets(msg)
+
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -70,102 +107,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
-
-		switch m.view {
-		case "credentials":
-			m, cmd, shouldReturn := updateCredentials(m, msg)
-			if shouldReturn {
-				return m, cmd
-			}
-
-		case "list":
-			switch msg.String() {
-			case "enter":
-				if m.view == "list" && len(m.tickets) > 0 {
-					selectedRow := m.table.Cursor()
-					if selectedRow < len(m.tickets) {
-						selectedTicket := m.tickets[selectedRow]
-						selected_branch := git_utils.FormatBranchName(selectedTicket)
-						m.view = "input"
-						m.input = gui.CreateBranchInput(selected_branch, m.width)
-						return m, textinput.Blink
-					}
-				}
-			}
-
-		case "input":
-			switch msg.String() {
-			case "enter":
-				branchName := m.input.Value()
-				return m, git_utils.CheckoutBranch(branchName)
-			case "esc":
-				m.view = "list"
-				return m, nil
-			}
-
-			m.input, cmd = m.input.Update(msg)
-			return m, cmd
-		}
-
-	case credentialsNeededMsg:
-		m.view = "credentials"
-		m.credentialInputs = CreateCredentialInputs(m.width)
-		m.currentField = 0
-		return m, textinput.Blink
-
-	case jira.Credentials:
-		m.credentials = msg
-		m.isLoggedIn = true
-		m.isLoading = true
-		m.view = "list"
-		return m, fetchTickets(msg)
-
-	case ticketsMsg:
-		if msg.err != nil {
-			m.err = msg.err
-			m.isLoading = false
-			return m, nil
-		}
-
-		m.tickets = msg.tickets
-
-		columns := []table.Column{
-			{Title: "Key", Width: 0},
-			{Title: "Type", Width: 0},
-			{Title: "Summary", Width: 0},
-			{Title: "Status", Width: 0},
-			{Title: "Created", Width: 0},
-		}
-
-		rows := []table.Row{}
-		for _, ticket := range m.tickets {
-			rows = append(rows, table.Row{ticket.Key, ticket.Type, ticket.Summary, ticket.Status, utils.FormatRelativeTime(ticket.Created)})
-		}
-
-		t := table.New(
-			table.WithColumns(columns),
-			table.WithRows(rows),
-			table.WithFocused(true),
-		)
-
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("8")).
-			BorderBottom(true).
-			Bold(false)
-		s.Selected = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("12")).
-			Background(lipgloss.Color("0")).
-			Bold(false)
-
-		t.SetStyles(s)
-
-		m.table = t
-		m.isLoading = false
-		m.isLoggedIn = true
-		m.updateTableSize()
-		return m, nil
 
 	case errMsg:
 		m.err = msg
