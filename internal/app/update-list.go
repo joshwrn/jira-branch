@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
-	"github.com/joshwrn/jira-branch/internal/gui"
 	"github.com/joshwrn/jira-branch/internal/jira"
 	"github.com/joshwrn/jira-branch/internal/utils"
 	"github.com/zalando/go-keyring"
@@ -33,6 +32,18 @@ func (m *model) updateTableSize() {
 	}
 }
 
+func createBranchInput(selected_branch string, width int) textinput.Model {
+	ti := textinput.New()
+	ti.Prompt = "Confirm or edit branch name: \n\n"
+	ti.SetValue(selected_branch)
+	ti.TextStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	ti.Focus()
+	ti.CharLimit = 200
+	ti.Width = width
+
+	return ti
+}
+
 type ticketsMsg struct {
 	tickets []jira.JiraTicketsMsg
 	err     error
@@ -56,7 +67,7 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 					selectedTicket := m.tickets[selectedRow]
 					selected_branch := git_utils.FormatBranchName(selectedTicket)
 					m.view = "input"
-					m.input = gui.CreateBranchInput(selected_branch, m.width)
+					m.input = createBranchInput(selected_branch, m.width)
 					return m, textinput.Blink, true
 				}
 			}
