@@ -56,7 +56,7 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 					selected_branch := git_utils.FormatBranchName(selectedTicket)
 					m.view = "form"
 
-					m.form = CreateForm(&m, selected_branch)
+					m.form = createForm(&m, selected_branch)
 					return m, m.form.Init(), true
 				}
 			}

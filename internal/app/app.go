@@ -202,7 +202,13 @@ func (m model) View() string {
 			}))
 			return b.String()
 		}
-		return m.form.View()
+
+		sidebar := createSidebar(&m)
+
+		formWidth := m.width - m.width/4 - 5
+		formView := lipgloss.NewStyle().Width(formWidth).Render(m.form.View())
+
+		return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
 	}
 
 	return lipgloss.NewStyle().

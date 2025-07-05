@@ -2,13 +2,14 @@ package app
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 )
 
-func CreateForm(m *model, initialBranchName string) *huh.Form {
+func createForm(m *model, initialBranchName string) *huh.Form {
 	branchName := initialBranchName
 	shouldMarkAsInProgress := true
 	m.formBranchName = &branchName
@@ -32,15 +33,44 @@ func CreateForm(m *model, initialBranchName string) *huh.Form {
 				Value(m.formShouldMarkAsInProgress).
 				Affirmative("Yes").
 				Negative("No").Inline(true),
-		).WithTheme(CustomTheme()),
+		).WithTheme(customTheme()),
 	)
 
 	return form
 }
 
+func createSidebar(m *model) string {
+	b := strings.Builder{}
+
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("5")).
+		Render(m.table.SelectedRow()[1]))
+	b.WriteString(" - ")
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("2")).
+		Render(m.table.SelectedRow()[3]))
+	b.WriteString("\n\n")
+
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("4")).
+		Render(m.table.SelectedRow()[2]))
+	b.WriteString("\n\n")
+
+	b.WriteString(m.table.SelectedRow()[4])
+
+	sidebar := lipgloss.NewStyle().
+		Width(m.width/4).
+		BorderStyle(lipgloss.RoundedBorder()).
+		Padding(1, 3).
+		BorderForeground(lipgloss.Color("8")).
+		Render(b.String())
+
+	return sidebar
+}
+
 var catppuccin = huh.ThemeCatppuccin()
 
-func CustomTheme() *huh.Theme {
+func customTheme() *huh.Theme {
 	// Focused field styling
 	focused := catppuccin.Focused
 	focused.Title = focused.Title.Foreground(lipgloss.Color("4"))
