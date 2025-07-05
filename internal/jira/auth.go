@@ -66,3 +66,7 @@ func ValidateCredentials(credentials Credentials) error {
 
 	return nil
 }
+
+func createAuthHeader(credentials Credentials) string {
+	return base64.StdEncoding.EncodeToString([]byte(credentials.Email + ":" + credentials.APIToken))
+}

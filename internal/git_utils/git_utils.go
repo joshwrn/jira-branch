@@ -3,12 +3,15 @@ package git_utils
 import (
 	"fmt"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"github.com/joshwrn/jira-branch/internal/jira"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+var BranchNameRegex = regexp.MustCompile(`[^a-zA-Z0-9-_./()]`)
 
 type errMsg error
 
@@ -20,6 +23,7 @@ func FormatBranchName(ticket jira.JiraTicketsMsg) string {
 
 	branchName := prefix + ticket.Key + "-" + strings.ToLower(ticket.Summary)
 	branchName = strings.ReplaceAll(branchName, " ", "_")
+	branchName = BranchNameRegex.ReplaceAllString(branchName, "")
 
 	return branchName
 }
