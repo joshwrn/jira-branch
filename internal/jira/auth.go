@@ -37,6 +37,7 @@ func ClearCredentials() error {
 	return keyring.Delete("jira-cli", "credentials")
 }
 
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-myself/#api-rest-api-3-myself-get
 func ValidateCredentials(credentials Credentials) error {
 	url := fmt.Sprintf("%s/rest/api/3/myself", credentials.JiraURL)
 
@@ -45,7 +46,7 @@ func ValidateCredentials(credentials Credentials) error {
 		return err
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(credentials.Email + ":" + credentials.APIToken))
+	auth := createAuthHeader(credentials)
 	req.Header.Add("Authorization", "Basic "+auth)
 	req.Header.Add("Accept", "application/json")
 

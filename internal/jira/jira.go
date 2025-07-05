@@ -28,6 +28,7 @@ type TransitionResponse struct {
 	Transitions []Transition `json:"transitions"`
 }
 
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-get
 func GetInProgressTransition(issueKey string, credentials Credentials) (string, error) {
 	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
 
@@ -77,6 +78,7 @@ func GetInProgressTransition(issueKey string, credentials Credentials) (string, 
 	return "", fmt.Errorf("transition not found")
 }
 
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-post
 func MarkAsInProgress(credentials Credentials, issueKey string) error {
 	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
 
@@ -130,6 +132,7 @@ type JiraTicketsMsg struct {
 	Created string
 }
 
+// https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
 func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	url := createJiraUrl("search")
 
