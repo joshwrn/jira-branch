@@ -1,6 +1,5 @@
 ## TODO
 
-- [ ] Table should be filterable
-- [ ] Ability to refresh table
-- [ ] More info at checkout screen
+- [ ] List should be filterable
+- [ ] Ability to refresh list
 - [ ] Update required scopes at credentials screen

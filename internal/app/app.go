@@ -105,6 +105,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.isSubmittingForm {
 			return m, nil
 		}
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc":
+				m.view = "list"
+				return m, nil
+			}
+		}
 		form, formCmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
@@ -129,10 +137,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, formCmd
 		}
-		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
-			m.view = "list"
-			return m, nil
-		}
+
 		return m, cmd
 	}
 
