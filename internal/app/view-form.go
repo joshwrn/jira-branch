@@ -8,12 +8,17 @@ import (
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 )
 
-func CreateForm(m model) *huh.Form {
-	return huh.NewForm(
+func CreateForm(m *model, initialBranchName string) *huh.Form {
+	branchName := initialBranchName
+	shouldMarkAsInProgress := true
+	m.formBranchName = &branchName
+	m.formShouldMarkAsInProgress = &shouldMarkAsInProgress
+
+	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Title("Branch name").
-				Value(&m.branchName).Validate(func(value string) error {
+				Value(m.formBranchName).Validate(func(value string) error {
 				if len(value) == 0 {
 					return errors.New("branch name is required")
 				}
@@ -24,16 +29,17 @@ func CreateForm(m model) *huh.Form {
 			}),
 			huh.NewConfirm().
 				Title("Mark as in progress?").
-				Value(&m.shouldMarkAsInProgress).
+				Value(m.formShouldMarkAsInProgress).
 				Affirmative("Yes").
 				Negative("No").Inline(true),
 		).WithTheme(CustomTheme()),
 	)
+
+	return form
 }
 
 var catppuccin = huh.ThemeCatppuccin()
 
-// CustomTheme creates a custom theme for huh forms using lipgloss
 func CustomTheme() *huh.Theme {
 	// Focused field styling
 	focused := catppuccin.Focused

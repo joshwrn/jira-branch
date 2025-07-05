@@ -67,16 +67,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 
+	case tea.QuitMsg:
+		if m.isSubmittingForm {
+			return m, tea.Quit
+		}
+
 	case errMsg:
 		m.err = msg
 		m.isLoading = false
+		m.isSubmittingForm = false
 		return m, nil
 
 	case spinner.TickMsg:
-		if m.isLoading {
+		if m.isLoading || m.isSubmittingForm {
 			m.spinner, cmd = m.spinner.Update(msg)
 			return m, cmd
 		}
+
 	}
 
 	// view specific messages
@@ -94,19 +101,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-	case "input":
+	case "form":
+		if m.isSubmittingForm {
+			return m, nil
+		}
 		form, formCmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
 			if m.form.State == huh.StateCompleted {
-				if m.shouldMarkAsInProgress {
-					jira.MarkAsInProgress(
-						m.credentials,
-						m.table.SelectedRow()[0],
-					)
-				}
-				branchName := m.branchName
-				return m, git_utils.CheckoutBranch(branchName)
+				m.isSubmittingForm = true
+				return m, tea.Batch(
+					m.spinner.Tick,
+					func() tea.Msg {
+						if *m.formShouldMarkAsInProgress {
+							err := jira.MarkAsInProgress(
+								m.credentials,
+								m.table.SelectedRow()[0],
+							)
+							if err != nil {
+								return errMsg(err)
+							}
+						}
+						checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
+						return checkCmd()
+					},
+				)
 			}
 			return m, formCmd
 		}
@@ -122,7 +141,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table, cmd = m.table.Update(msg)
 	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
 		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
-	} else if m.view == "input" {
+	} else if m.view == "form" {
 		m.input, cmd = m.input.Update(msg)
 	}
 
@@ -171,7 +190,18 @@ func (m model) View() string {
 		return b.String()
 	}
 
-	if m.view == "input" {
+	if m.view == "form" {
+		if m.isSubmittingForm {
+			b := strings.Builder{}
+			b.WriteString(m.spinner.View())
+			b.WriteString(" ")
+			b.WriteString("Creating branch and updating Jira...")
+			b.WriteString("\n\n")
+			b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+				{Key: "q/ctrl+c", Desc: "Quit"},
+			}))
+			return b.String()
+		}
 		return m.form.View()
 	}
 
@@ -187,19 +217,18 @@ func Run() {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	m := model{
-		table:                  table.New(),
-		spinner:                s,
-		isLoading:              true,
-		isLoggedIn:             false,
-		shouldMarkAsInProgress: true,
-		view:                   "list",
-		input:                  textinput.New(),
-		tickets:                []jira.JiraTicketsMsg{},
-		credentialInputs:       []textinput.Model{},
-		currentField:           0,
+		table:            table.New(),
+		spinner:          s,
+		isLoading:        true,
+		isLoggedIn:       false,
+		view:             "list",
+		input:            textinput.New(),
+		tickets:          []jira.JiraTicketsMsg{},
+		credentialInputs: []textinput.Model{},
+		currentField:     0,
 	}
 
-	p := tea.NewProgram(m)
+	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error running program:", err)

@@ -21,8 +21,10 @@ type model struct {
 	input   textinput.Model
 	form    *huh.Form
 
-	shouldMarkAsInProgress bool
-	branchName             string
+	isSubmittingForm bool
+
+	formBranchName             *string
+	formShouldMarkAsInProgress *bool
 
 	credentialInputs []textinput.Model
 	currentField     int

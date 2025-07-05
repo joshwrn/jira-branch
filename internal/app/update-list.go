@@ -54,10 +54,9 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 				if selectedRow < len(m.tickets) {
 					selectedTicket := m.tickets[selectedRow]
 					selected_branch := git_utils.FormatBranchName(selectedTicket)
-					m.branchName = selected_branch
-					m.view = "input"
+					m.view = "form"
 
-					m.form = CreateForm(m)
+					m.form = CreateForm(&m, selected_branch)
 					return m, m.form.Init(), true
 				}
 			}
