@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-var BranchNameRegex = regexp.MustCompile(`[^a-zA-Z0-9-_./()]`)
+var BranchNameRegex = regexp.MustCompile(`[^a-zA-Z0-9-_./]`)
 
 type errMsg error
 
