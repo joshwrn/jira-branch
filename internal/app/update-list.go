@@ -41,6 +41,12 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "r":
+			m.isLoading = true
+			return m, tea.Batch(func() tea.Msg {
+				tickets, err := jira.GetJiraTickets(m.credentials)
+				return ticketsMsg{tickets: tickets, err: err}
+			}, m.spinner.Tick), true
 		case "S":
 			m.view = "credentials"
 			m.credentialInputs = CreateCredentialInputs(m.width)
