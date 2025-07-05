@@ -2,7 +2,6 @@ package jira
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -18,17 +17,76 @@ func createJiraUrl(endpoint string) string {
 }
 
 type Transition struct {
-	ID string `json:"id"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 type TransitionIssueBody struct {
 	Transition Transition `json:"transition"`
 }
 
+type TransitionResponse struct {
+	Transitions []Transition `json:"transitions"`
+}
+
+func GetInProgressTransition(issueKey string, credentials Credentials) (string, error) {
+	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	auth := createAuthHeader(credentials)
+
+	req.Header.Add("Authorization", "Basic "+auth)
+	req.Header.Add("Accept", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return "", fmt.Errorf("authentication failed: check your credentials")
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("jira API error: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var result TransitionResponse
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return "", err
+	}
+
+	for _, transition := range result.Transitions {
+		if transition.Name == "In Progress" {
+			return transition.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("transition not found")
+}
+
 func MarkAsInProgress(credentials Credentials, issueKey string) error {
 	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
 
+	transitionId, err := GetInProgressTransition(issueKey, credentials)
+	if err != nil {
+		return err
+	}
+
 	body, err := json.Marshal(TransitionIssueBody{
-		Transition: Transition{ID: "21"},
+		Transition: Transition{ID: transitionId},
 	})
 	if err != nil {
 		return err
@@ -39,7 +97,7 @@ func MarkAsInProgress(credentials Credentials, issueKey string) error {
 		return err
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(credentials.Email + ":" + credentials.APIToken))
+	auth := createAuthHeader(credentials)
 
 	req.Header.Add("Authorization", "Basic "+auth)
 	req.Header.Add("Content-Type", "application/json")
@@ -80,7 +138,7 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 		return []JiraTicketsMsg{}, err
 	}
 
-	auth := base64.StdEncoding.EncodeToString([]byte(credentials.Email + ":" + credentials.APIToken))
+	auth := createAuthHeader(credentials)
 
 	req.Header.Add("Authorization", "Basic "+auth)
 	req.Header.Add("Accept", "application/json")

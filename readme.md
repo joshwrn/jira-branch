@@ -1,4 +1,4 @@
 ## TODO
 
-- [ ] Show spinner when submitting form
-- [ ] Get issue type keys from jira
+- [ ] Table should be filterable
+- [ ] Ability to refresh table
