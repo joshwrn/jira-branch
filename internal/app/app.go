@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
-
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/gui"
@@ -95,19 +95,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case "input":
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch msg.String() {
-			case "enter":
-				branchName := m.input.Value()
+		form, formCmd := m.form.Update(msg)
+		if f, ok := form.(*huh.Form); ok {
+			m.form = f
+			if m.form.State == huh.StateCompleted {
+				if m.shouldMarkAsInProgress {
+					jira.MarkAsInProgress(
+						m.credentials,
+						m.table.SelectedRow()[0],
+					)
+				}
+				branchName := m.branchName
 				return m, git_utils.CheckoutBranch(branchName)
-			case "esc":
-				m.view = "list"
-				return m, nil
 			}
-			m.input, cmd = m.input.Update(msg)
-			return m, cmd
+			return m, formCmd
 		}
+		if keyMsg, ok := msg.(tea.KeyMsg); ok && keyMsg.String() == "esc" {
+			m.view = "list"
+			return m, nil
+		}
+		return m, cmd
 	}
 
 	// view specific updates
@@ -165,16 +172,7 @@ func (m model) View() string {
 	}
 
 	if m.view == "input" {
-		b := strings.Builder{}
-		b.WriteString(m.input.View())
-		b.WriteString("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
-			{Key: "enter", Desc: "Checkout branch"},
-			{Key: "esc", Desc: "Go back"},
-			{Key: "ctrl+c", Desc: "Quit"},
-		}))
-
-		return b.String()
+		return m.form.View()
 	}
 
 	return lipgloss.NewStyle().
@@ -189,18 +187,19 @@ func Run() {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	m := model{
-		table:            table.New(),
-		spinner:          s,
-		isLoading:        true,
-		isLoggedIn:       false,
-		view:             "list",
-		input:            textinput.New(),
-		tickets:          []jira.JiraTicketsMsg{},
-		credentialInputs: []textinput.Model{},
-		currentField:     0,
+		table:                  table.New(),
+		spinner:                s,
+		isLoading:              true,
+		isLoggedIn:             false,
+		shouldMarkAsInProgress: true,
+		view:                   "list",
+		input:                  textinput.New(),
+		tickets:                []jira.JiraTicketsMsg{},
+		credentialInputs:       []textinput.Model{},
+		currentField:           0,
 	}
 
-	p := tea.NewProgram(m, tea.WithAltScreen())
+	p := tea.NewProgram(m)
 
 	if _, err := p.Run(); err != nil {
 		fmt.Println("Error running program:", err)
