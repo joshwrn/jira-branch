@@ -41,10 +41,10 @@ func CheckoutBranch(branchName string) tea.Cmd {
 			cmd = exec.Command("git", "checkout", "-b", branchName)
 		}
 
-		err := cmd.Run()
+		output, err := cmd.CombinedOutput()
 
 		if err != nil {
-			return errMsg(fmt.Errorf("failed to checkout branch %s: %v", branchName, err))
+			return errMsg(fmt.Errorf("failed to checkout branch %s: %v\n\nOutput: %s", branchName, err, string(output)))
 		}
 
 		return tea.Quit()
