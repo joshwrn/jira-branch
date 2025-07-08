@@ -219,7 +219,12 @@ func (m model) View() string {
 	return lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
-		Render(m.table.View())
+		Render(m.table.View()) + "\n" + gui.CreateHelpItems([]gui.HelpItem{
+		{Key: "enter", Desc: "Select ticket"},
+		{Key: "r", Desc: "Refresh"},
+		{Key: "S", Desc: "Sign out"},
+		{Key: "q/ctrl+c", Desc: "Quit"},
+	})
 }
 
 func Run() {

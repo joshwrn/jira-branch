@@ -28,7 +28,7 @@ func (m *model) updateTableSize() {
 		}
 		m.table.SetColumns(columns)
 		m.table.SetWidth(m.width - 2)
-		m.table.SetHeight(m.height - 2)
+		m.table.SetHeight(m.height - 3)
 	}
 }
 
