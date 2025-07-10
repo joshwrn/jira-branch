@@ -49,7 +49,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.view = "list"
 		return m, func() tea.Msg {
 			tickets, err := jira.GetJiraTickets(msg)
-			return ticketsMsg{tickets: tickets, err: err}
+			return ticketsMsg{
+				tickets:                   tickets,
+				err:                       err,
+				shouldOverwriteAllTickets: true,
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -89,10 +93,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// view specific messages
 	switch m.view {
 	case "list":
-		m, cmd, shouldReturn := updateList(m, msg)
-		if shouldReturn {
-			return m, cmd
+		if m.showSearch {
+			m, cmd, shouldReturn := updateSearch(m, msg)
+			if shouldReturn {
+				return m, cmd
+			}
+		} else {
+			m, cmd, shouldReturn := updateList(m, msg)
+			if shouldReturn {
+				return m, cmd
+			}
 		}
+
 	case "credentials":
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -116,26 +128,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		form, formCmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
-			if m.form.State == huh.StateCompleted {
-				m.isSubmittingForm = true
-				return m, tea.Batch(
-					m.spinner.Tick,
-					func() tea.Msg {
-						if *m.formShouldMarkAsInProgress {
-							err := jira.MarkAsInProgress(
-								m.credentials,
-								m.table.SelectedRow()[0],
-							)
-							if err != nil {
-								return errMsg(err)
-							}
-						}
-						checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
-						return checkCmd()
-					},
-				)
+			if m.form.State != huh.StateCompleted {
+				return m, formCmd
 			}
-			return m, formCmd
+			m.isSubmittingForm = true
+			return m, tea.Batch(
+				m.spinner.Tick,
+				func() tea.Msg {
+					if *m.formShouldMarkAsInProgress {
+						err := jira.MarkAsInProgress(
+							m.credentials,
+							m.table.SelectedRow()[0],
+						)
+						if err != nil {
+							return errMsg(err)
+						}
+					}
+					checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
+					return checkCmd()
+				},
+			)
 		}
 
 		return m, cmd
@@ -143,7 +155,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// view specific updates
 	if !m.isLoading && m.isLoggedIn && m.view == "list" {
-		m.table, cmd = m.table.Update(msg)
+		if m.showSearch {
+			m.searchInput, cmd = m.searchInput.Update(msg)
+		} else {
+			m.table, cmd = m.table.Update(msg)
+		}
+
 	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
 		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
 	} else if m.view == "form" {
@@ -216,11 +233,19 @@ func (m model) View() string {
 		return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
 	}
 
-	return lipgloss.NewStyle().
+	b := strings.Builder{}
+
+	if m.showSearch {
+		b.WriteString(m.searchInput.View())
+		b.WriteString("\n")
+	}
+
+	return b.String() + lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		Render(m.table.View()) + "\n" + gui.CreateHelpItems([]gui.HelpItem{
 		{Key: "enter", Desc: "Select ticket"},
+		{Key: "/", Desc: "Search"},
 		{Key: "r", Desc: "Refresh"},
 		{Key: "S", Desc: "Sign out"},
 		{Key: "q/ctrl+c", Desc: "Quit"},
@@ -242,6 +267,9 @@ func Run() {
 		tickets:          []jira.JiraTicketsMsg{},
 		credentialInputs: []textinput.Model{},
 		currentField:     0,
+		showSearch:       false,
+		searchInput:      textinput.New(),
+		search:           "",
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())

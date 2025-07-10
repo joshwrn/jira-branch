@@ -28,13 +28,14 @@ func (m *model) updateTableSize() {
 		}
 		m.table.SetColumns(columns)
 		m.table.SetWidth(m.width - 2)
-		m.table.SetHeight(m.height - 3)
+		m.table.SetHeight(m.height - 4)
 	}
 }
 
 type ticketsMsg struct {
-	tickets []jira.JiraTicketsMsg
-	err     error
+	tickets                   []jira.JiraTicketsMsg
+	shouldOverwriteAllTickets bool
+	err                       error
 }
 
 func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
@@ -43,10 +44,17 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 		switch msg.String() {
 		case "r":
 			m.isLoading = true
-			return m, tea.Batch(func() tea.Msg {
-				tickets, err := jira.GetJiraTickets(m.credentials)
-				return ticketsMsg{tickets: tickets, err: err}
-			}, m.spinner.Tick), true
+			tickets, err := jira.GetJiraTickets(m.credentials)
+			return m, tea.Batch(
+				func() tea.Msg {
+					return ticketsMsg{
+						tickets:                   tickets,
+						err:                       err,
+						shouldOverwriteAllTickets: true,
+					}
+				},
+				m.spinner.Tick,
+			), true
 		case "S":
 			m.view = "credentials"
 			m.credentialInputs = CreateCredentialInputs(m.width)
@@ -66,6 +74,12 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 					return m, m.form.Init(), true
 				}
 			}
+		case "/":
+			m.searchInput = createSearchInput(m.width)
+			m.searchInput.SetValue(m.search)
+			m.searchInput.Focus()
+			m.showSearch = true
+			return m, nil, true
 		}
 	case credentialsNeededMsg:
 		m.view = "credentials"
@@ -78,9 +92,10 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			m.isLoading = false
 			return m, nil, true
 		}
-
+		if msg.shouldOverwriteAllTickets {
+			m.allTickets = msg.tickets
+		}
 		m.tickets = msg.tickets
-
 		columns := []table.Column{
 			{Title: "Key", Width: 0},
 			{Title: "Type", Width: 0},

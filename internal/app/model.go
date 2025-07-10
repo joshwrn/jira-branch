@@ -30,5 +30,10 @@ type model struct {
 	currentField     int
 	credentials      jira.Credentials
 
-	tickets []jira.JiraTicketsMsg
+	allTickets []jira.JiraTicketsMsg
+	tickets    []jira.JiraTicketsMsg
+
+	showSearch  bool
+	search      string
+	searchInput textinput.Model
 }
