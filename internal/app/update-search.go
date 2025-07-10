@@ -13,7 +13,6 @@ func keyIncludesSearch(search string, ticket jira.JiraTicketsMsg) bool {
 		"summary": ticket.Summary,
 		"type":    ticket.Type,
 		"status":  ticket.Status,
-		"created": ticket.Created,
 	}
 	for _, value := range keyMap {
 		if strings.Contains(strings.ToLower(value), strings.ToLower(search)) {
