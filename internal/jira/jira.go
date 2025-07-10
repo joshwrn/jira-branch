@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	"github.com/joshwrn/jira-branch/internal/utils"
 )
 
 func createJiraUrl(endpoint string) string {
@@ -146,8 +148,19 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	req.Header.Add("Authorization", "Basic "+auth)
 	req.Header.Add("Accept", "application/json")
 
+	config, err := utils.ReadConfigFile()
+	if err != nil {
+		utils.Log.Error().Err(err).Msg("Failed to read config file")
+	}
+
 	q := req.URL.Query()
-	q.Add("jql", "assignee = currentUser() AND status != Done order by createdDate")
+	jql := ""
+	if config.ProjectKey != "" {
+		utils.Log.Info().Msgf("projectKey: %s", config.ProjectKey)
+		jql = fmt.Sprintf("project = %s AND ", config.ProjectKey)
+	}
+	jql = jql + "assignee = currentUser() AND status != Done order by createdDate"
+	q.Add("jql", jql)
 	q.Add("fields", "summary,status,issuetype,assignee,created")
 	q.Add("maxResults", "100")
 	req.URL.RawQuery = q.Encode()
