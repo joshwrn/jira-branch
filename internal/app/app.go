@@ -159,7 +159,7 @@ func Run() {
 	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
 	m := model{
-		table:            table.New(),
+		list:             table.New(),
 		spinner:          s,
 		isLoading:        true,
 		isLoggedIn:       false,

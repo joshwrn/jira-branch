@@ -47,5 +47,5 @@ func viewList(m model) string {
 	return searchView.String() + lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
-		Render(m.table.View()) + "\n" + helper
+		Render(m.list.View()) + "\n" + helper
 }

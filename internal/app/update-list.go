@@ -24,13 +24,13 @@ func (m *model) updateTableSize() {
 			{Title: "Status", Width: statusWidth},
 			{Title: "Created", Width: createdWidth},
 		}
-		m.table.SetColumns(columns)
-		m.table.SetWidth(m.width - 2)
+		m.list.SetColumns(columns)
+		m.list.SetWidth(m.width - 2)
 		height := m.height - 3
 		if m.showSearch {
 			height = height - 1
 		}
-		m.table.SetHeight(height)
+		m.list.SetHeight(height)
 	}
 }
 
@@ -66,7 +66,7 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd) {
 			return m, textinput.Blink
 		case "enter":
 			if m.view == "list" && len(m.tickets) > 0 {
-				selectedRow := m.table.Cursor()
+				selectedRow := m.list.Cursor()
 				if selectedRow < len(m.tickets) {
 					selectedTicket := m.tickets[selectedRow]
 					selected_branch := git_utils.FormatBranchName(selectedTicket)
@@ -107,8 +107,8 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	updatedTable, cmd := m.table.Update(msg)
-	m.table = updatedTable
+	updatedTable, cmd := m.list.Update(msg)
+	m.list = updatedTable
 	return m, cmd
 
 }

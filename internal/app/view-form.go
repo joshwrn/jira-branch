@@ -67,19 +67,19 @@ func createSidebar(m *model) string {
 
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("5")).
-		Render(m.table.SelectedRow()[1]))
+		Render(m.list.SelectedRow()[1]))
 	b.WriteString(" - ")
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("2")).
-		Render(m.table.SelectedRow()[3]))
+		Render(m.list.SelectedRow()[3]))
 	b.WriteString("\n\n")
 
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("4")).
-		Render(m.table.SelectedRow()[2]))
+		Render(m.list.SelectedRow()[2]))
 	b.WriteString("\n\n")
 
-	b.WriteString(m.table.SelectedRow()[4])
+	b.WriteString(m.list.SelectedRow()[4])
 
 	sidebar := lipgloss.NewStyle().
 		Width(m.width/4).

@@ -17,7 +17,7 @@ type model struct {
 	view       string
 
 	spinner spinner.Model
-	table   table.Model
+	list    table.Model
 	form    *huh.Form
 
 	isSubmittingForm bool

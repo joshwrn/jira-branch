@@ -70,7 +70,7 @@ func filterTickets(m *model) {
 
 	t.SetStyles(s)
 
-	m.table = t
+	m.list = t
 	m.updateTableSize()
 }
 
@@ -82,14 +82,14 @@ func updateSearch(m model, msg tea.Msg) (model, tea.Cmd) {
 			m.showSearch = false
 			m.updateTableSize()
 			m.search = m.searchInput.Value()
-			m.table.GotoTop()
+			m.list.GotoTop()
 			return m, nil
 		case "esc":
 			m.showSearch = false
 			m.searchInput.SetValue("")
 			m.search = ""
 			filterTickets(&m)
-			m.table.GotoTop()
+			m.list.GotoTop()
 			return m, nil
 		}
 	}

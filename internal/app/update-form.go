@@ -32,7 +32,7 @@ func updateForm(m model, msg tea.Msg) (model, tea.Cmd) {
 				if *m.formShouldMarkAsInProgress {
 					err := jira.MarkAsInProgress(
 						m.credentials,
-						m.table.SelectedRow()[0],
+						m.list.SelectedRow()[0],
 					)
 					if err != nil {
 						return errMsg(err)
