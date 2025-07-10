@@ -49,7 +49,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.view = "list"
 		return m, func() tea.Msg {
 			tickets, err := jira.GetJiraTickets(msg)
-			return ticketsMsg{tickets: tickets, err: err}
+			return ticketsMsg{
+				tickets:                   tickets,
+				err:                       err,
+				shouldOverwriteAllTickets: true,
+			}
 		}
 
 	case tea.WindowSizeMsg:
@@ -89,10 +93,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// view specific messages
 	switch m.view {
 	case "list":
-		m, cmd, shouldReturn := updateList(m, msg)
-		if shouldReturn {
-			return m, cmd
+		if m.showSearch {
+			m, cmd, shouldReturn := updateSearch(m, msg)
+			if shouldReturn {
+				return m, cmd
+			}
+		} else {
+			m, cmd, shouldReturn := updateList(m, msg)
+			if shouldReturn {
+				return m, cmd
+			}
 		}
+
 	case "credentials":
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -116,26 +128,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		form, formCmd := m.form.Update(msg)
 		if f, ok := form.(*huh.Form); ok {
 			m.form = f
-			if m.form.State == huh.StateCompleted {
-				m.isSubmittingForm = true
-				return m, tea.Batch(
-					m.spinner.Tick,
-					func() tea.Msg {
-						if *m.formShouldMarkAsInProgress {
-							err := jira.MarkAsInProgress(
-								m.credentials,
-								m.table.SelectedRow()[0],
-							)
-							if err != nil {
-								return errMsg(err)
-							}
-						}
-						checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
-						return checkCmd()
-					},
-				)
+			if m.form.State != huh.StateCompleted {
+				return m, formCmd
 			}
-			return m, formCmd
+			m.isSubmittingForm = true
+			return m, tea.Batch(
+				m.spinner.Tick,
+				func() tea.Msg {
+					if *m.formShouldMarkAsInProgress {
+						err := jira.MarkAsInProgress(
+							m.credentials,
+							m.table.SelectedRow()[0],
+						)
+						if err != nil {
+							return errMsg(err)
+						}
+					}
+					checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
+					return checkCmd()
+				},
+			)
 		}
 
 		return m, cmd
@@ -143,7 +155,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// view specific updates
 	if !m.isLoading && m.isLoggedIn && m.view == "list" {
-		m.table, cmd = m.table.Update(msg)
+		if m.showSearch {
+			m.searchInput, cmd = m.searchInput.Update(msg)
+		} else {
+			m.table, cmd = m.table.Update(msg)
+		}
+
 	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
 		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
 	} else if m.view == "form" {
@@ -160,9 +177,10 @@ func (m model) View() string {
 
 	if m.err != nil {
 		b := strings.Builder{}
-		b.WriteString(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
-		b.WriteString("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+		bw := b.WriteString
+		bw(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
+		bw("\n\n")
+		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
 
@@ -171,11 +189,12 @@ func (m model) View() string {
 
 	if !m.isLoggedIn && m.isLoading {
 		b := strings.Builder{}
-		b.WriteString(m.spinner.View())
-		b.WriteString(" ")
-		b.WriteString("Validating credentials...")
-		b.WriteString("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+		bw := b.WriteString
+		bw(m.spinner.View())
+		bw(" ")
+		bw("Validating credentials...")
+		bw("\n\n")
+		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
 
@@ -184,10 +203,11 @@ func (m model) View() string {
 
 	if m.isLoading {
 		b := strings.Builder{}
-		b.WriteString(m.spinner.View())
-		b.WriteString(" ")
-		b.WriteString("Loading Jira tickets...")
-		b.WriteString("\n\n")
+		bw := b.WriteString
+		bw(m.spinner.View())
+		bw(" ")
+		bw("Loading Jira tickets...")
+		bw("\n\n")
 		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
@@ -198,10 +218,11 @@ func (m model) View() string {
 	if m.view == "form" {
 		if m.isSubmittingForm {
 			b := strings.Builder{}
-			b.WriteString(m.spinner.View())
-			b.WriteString(" ")
-			b.WriteString("Creating branch and updating Jira...")
-			b.WriteString("\n\n")
+			bw := b.WriteString
+			bw(m.spinner.View())
+			bw(" ")
+			bw("Creating branch and updating Jira...")
+			bw("\n\n")
 			b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 				{Key: "q/ctrl+c", Desc: "Quit"},
 			}))
@@ -216,15 +237,40 @@ func (m model) View() string {
 		return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
 	}
 
-	return lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
-		Render(m.table.View()) + "\n" + gui.CreateHelpItems([]gui.HelpItem{
+	helper := gui.CreateHelpItems([]gui.HelpItem{
 		{Key: "enter", Desc: "Select ticket"},
+		{Key: "/", Desc: "Search"},
 		{Key: "r", Desc: "Refresh"},
 		{Key: "S", Desc: "Sign out"},
 		{Key: "q/ctrl+c", Desc: "Quit"},
 	})
+
+	b := strings.Builder{}
+	bw := b.WriteString
+
+	if m.showSearch {
+		bw(m.searchInput.View())
+		bw("\n")
+	}
+
+	if m.search != "" && !m.showSearch {
+		helperWidth := lipgloss.Width(helper)
+		availableWidth := m.width - helperWidth
+		searchText := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("3")).
+			Render(fmt.Sprintf("/%s", m.search))
+
+		helper = helper +
+			lipgloss.NewStyle().
+				Width(availableWidth-1).
+				Align(lipgloss.Right).
+				Render(searchText)
+	}
+
+	return b.String() + lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Render(m.table.View()) + "\n" + helper
 }
 
 func Run() {
@@ -242,6 +288,9 @@ func Run() {
 		tickets:          []jira.JiraTicketsMsg{},
 		credentialInputs: []textinput.Model{},
 		currentField:     0,
+		showSearch:       false,
+		searchInput:      textinput.New(),
+		search:           "",
 	}
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
