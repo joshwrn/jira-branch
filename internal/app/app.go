@@ -164,7 +164,6 @@ func Run() {
 		isLoading:        true,
 		isLoggedIn:       false,
 		view:             "list",
-		input:            textinput.New(),
 		tickets:          []jira.JiraTicketsMsg{},
 		credentialInputs: []textinput.Model{},
 		currentField:     0,

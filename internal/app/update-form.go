@@ -43,7 +43,5 @@ func updateForm(m model, msg tea.Msg) (model, tea.Cmd) {
 			},
 		)
 	}
-	updatedInput, cmd := m.input.Update(msg)
-	m.input = updatedInput
-	return m, cmd
+	return m, nil
 }

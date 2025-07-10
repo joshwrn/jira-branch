@@ -18,7 +18,6 @@ type model struct {
 
 	spinner spinner.Model
 	table   table.Model
-	input   textinput.Model
 	form    *huh.Form
 
 	isSubmittingForm bool
