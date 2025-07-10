@@ -156,7 +156,6 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	q := req.URL.Query()
 	jql := ""
 	if config.ProjectKey != "" {
-		utils.Log.Info().Msgf("projectKey: %s", config.ProjectKey)
 		jql = fmt.Sprintf("project = %s AND ", config.ProjectKey)
 	}
 	jql = jql + "assignee = currentUser() AND status != Done order by createdDate"
