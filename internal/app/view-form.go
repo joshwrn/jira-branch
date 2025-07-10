@@ -7,7 +7,30 @@ import (
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
+	"github.com/joshwrn/jira-branch/internal/gui"
 )
+
+func viewForm(m model) string {
+	if m.isSubmittingForm {
+		b := strings.Builder{}
+		bw := b.WriteString
+		bw(m.spinner.View())
+		bw(" ")
+		bw("Creating branch and updating Jira...")
+		bw("\n\n")
+		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "q/ctrl+c", Desc: "Quit"},
+		}))
+		return b.String()
+	}
+
+	sidebar := createSidebar(&m)
+
+	formWidth := m.width - m.width/4 - 5
+	formView := lipgloss.NewStyle().Width(formWidth).Render(m.form.View())
+
+	return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
+}
 
 func createForm(m *model, initialBranchName string) *huh.Form {
 	branchName := initialBranchName

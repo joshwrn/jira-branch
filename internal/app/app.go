@@ -9,9 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 
-	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/gui"
 	"github.com/joshwrn/jira-branch/internal/jira"
 
@@ -93,72 +91,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.view {
 	case "list":
 		if m.showSearch {
-			m, cmd, shouldReturn := updateSearch(m, msg)
-			if shouldReturn {
-				return m, cmd
-			}
+			return updateSearch(m, msg)
 		} else {
-			m, cmd, shouldReturn := updateList(m, msg)
-			if shouldReturn {
-				return m, cmd
-			}
+			return updateList(m, msg)
 		}
-		if !m.isLoading && m.isLoggedIn {
-			if m.showSearch {
-				m.searchInput, cmd = m.searchInput.Update(msg)
-				filterTickets(&m)
-			} else {
-				m.table, cmd = m.table.Update(msg)
-			}
-		}
-
 	case "credentials":
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			m, cmd, shouldReturn := updateCredentials(m, msg)
-			if shouldReturn {
-				return m, cmd
-			}
-		}
-		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
-
+		return updateCredentials(m, msg)
 	case "form":
-		if m.isSubmittingForm {
-			return m, nil
-		}
-		switch msg := msg.(type) {
-		case tea.KeyMsg:
-			switch msg.String() {
-			case "esc":
-				m.view = "list"
-				return m, nil
-			}
-		}
-		form, formCmd := m.form.Update(msg)
-		if f, ok := form.(*huh.Form); ok {
-			m.form = f
-			if m.form.State != huh.StateCompleted {
-				return m, formCmd
-			}
-			m.isSubmittingForm = true
-			return m, tea.Batch(
-				m.spinner.Tick,
-				func() tea.Msg {
-					if *m.formShouldMarkAsInProgress {
-						err := jira.MarkAsInProgress(
-							m.credentials,
-							m.table.SelectedRow()[0],
-						)
-						if err != nil {
-							return errMsg(err)
-						}
-					}
-					checkCmd := git_utils.CheckoutBranch(*m.formBranchName)
-					return checkCmd()
-				},
-			)
-		}
-		m.input, cmd = m.input.Update(msg)
+		return updateForm(m, msg)
 	}
 
 	return m, cmd
@@ -177,7 +117,6 @@ func (m model) View() string {
 		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
-
 		return b.String()
 	}
 
@@ -191,7 +130,6 @@ func (m model) View() string {
 		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
-
 		return b.String()
 	}
 
@@ -205,71 +143,14 @@ func (m model) View() string {
 		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
-
 		return b.String()
 	}
 
 	if m.view == "form" {
-		if m.isSubmittingForm {
-			b := strings.Builder{}
-			bw := b.WriteString
-			bw(m.spinner.View())
-			bw(" ")
-			bw("Creating branch and updating Jira...")
-			bw("\n\n")
-			b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
-				{Key: "q/ctrl+c", Desc: "Quit"},
-			}))
-			return b.String()
-		}
-
-		sidebar := createSidebar(&m)
-
-		formWidth := m.width - m.width/4 - 5
-		formView := lipgloss.NewStyle().Width(formWidth).Render(m.form.View())
-
-		return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
+		return viewForm(m)
 	}
 
-	helper := gui.CreateHelpItems([]gui.HelpItem{
-		{Key: "j/k", Desc: "↓/↑"},
-		{Key: "enter", Desc: "Select ticket"},
-		{Key: "/", Desc: "Search"},
-		{Key: "r", Desc: "Refresh"},
-		{Key: "S", Desc: "Sign out"},
-		{Key: "q/ctrl+c", Desc: "Quit"},
-	})
-
-	searchView := strings.Builder{}
-	bw := searchView.WriteString
-
-	if m.showSearch {
-		bw(m.searchInput.View())
-		bw("\n")
-		helper = gui.CreateHelpItems([]gui.HelpItem{
-			{Key: "esc", Desc: "Clear"},
-			{Key: "enter", Desc: "Confirm"},
-		})
-	}
-
-	if m.search != "" && !m.showSearch {
-		helperWidth := lipgloss.Width(helper)
-		availableWidth := m.width - helperWidth
-		searchText := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("3")).
-			Render(fmt.Sprintf("/%s", m.search))
-
-		helper = helper +
-			lipgloss.NewStyle().
-				Width(availableWidth-1).
-				Align(lipgloss.Right).
-				Render(searchText)
-	}
-
-	return searchView.String() + lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
-		Render(m.table.View()) + "\n" + helper
+	return viewList(m)
 }
 
 func Run() {

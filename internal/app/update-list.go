@@ -40,7 +40,7 @@ type ticketsMsg struct {
 	err                       error
 }
 
-func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
+func updateList(m model, msg tea.Msg) (model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -56,14 +56,14 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 					}
 				},
 				m.spinner.Tick,
-			), true
+			)
 		case "S":
 			m.view = "credentials"
 			m.credentialInputs = CreateCredentialInputs(m.width)
 			m.currentField = 0
 			m.isLoggedIn = false
 			keyring.Delete("jira-cli", "credentials")
-			return m, textinput.Blink, true
+			return m, textinput.Blink
 		case "enter":
 			if m.view == "list" && len(m.tickets) > 0 {
 				selectedRow := m.table.Cursor()
@@ -73,7 +73,7 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 					m.view = "form"
 
 					m.form = createForm(&m, selected_branch)
-					return m, m.form.Init(), true
+					return m, m.form.Init()
 				}
 			}
 		case "/":
@@ -82,18 +82,18 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			m.searchInput.Focus()
 			m.showSearch = true
 			m.updateTableSize()
-			return m, nil, true
+			return m, nil
 		}
 	case credentialsNeededMsg:
 		m.view = "credentials"
 		m.credentialInputs = CreateCredentialInputs(m.width)
 		m.currentField = 0
-		return m, textinput.Blink, true
+		return m, textinput.Blink
 	case ticketsMsg:
 		if msg.err != nil {
 			m.err = msg.err
 			m.isLoading = false
-			return m, nil, true
+			return m, nil
 		}
 		if msg.shouldOverwriteAllTickets {
 			m.allTickets = msg.tickets
@@ -104,8 +104,11 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 
 		m.isLoading = false
 		m.isLoggedIn = true
-		return m, nil, true
+		return m, nil
 	}
 
-	return m, nil, false
+	updatedTable, cmd := m.table.Update(msg)
+	m.table = updatedTable
+	return m, cmd
+
 }

@@ -25,7 +25,7 @@ func validateAndStoreCredentials(credentials jira.Credentials) tea.Cmd {
 	}
 }
 
-func updateCredentials(m model, msg tea.Msg) (model, tea.Cmd, bool) {
+func updateCredentials(m model, msg tea.Msg) (model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -47,12 +47,12 @@ func updateCredentials(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 
 				if m.credentials.JiraURL == "" || m.credentials.Email == "" || m.credentials.APIToken == "" {
 					m.err = errMsg(fmt.Errorf("all fields are required"))
-					return m, nil, false
+					return m, nil
 				}
 
 				m.isLoading = true
 				m.err = nil
-				return m, validateAndStoreCredentials(m.credentials), true
+				return m, validateAndStoreCredentials(m.credentials)
 			}
 
 			if s == "up" || s == "shift+tab" {
@@ -75,9 +75,12 @@ func updateCredentials(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 				}
 			}
 
-			return m, textinput.Blink, true
+			return m, textinput.Blink
 		}
 	}
 
-	return m, nil, false
+	updatedCredentialInputs, cmd := m.credentialInputs[m.currentField].Update(msg)
+	m.credentialInputs[m.currentField] = updatedCredentialInputs
+
+	return m, cmd
 }

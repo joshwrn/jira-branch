@@ -74,7 +74,7 @@ func filterTickets(m *model) {
 	m.updateTableSize()
 }
 
-func updateSearch(m model, msg tea.Msg) (model, tea.Cmd, bool) {
+func updateSearch(m model, msg tea.Msg) (model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
@@ -83,16 +83,23 @@ func updateSearch(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			m.updateTableSize()
 			m.search = m.searchInput.Value()
 			m.table.GotoTop()
-			return m, nil, true
+			return m, nil
 		case "esc":
 			m.showSearch = false
 			m.searchInput.SetValue("")
 			m.search = ""
 			filterTickets(&m)
 			m.table.GotoTop()
-			return m, nil, true
+			return m, nil
 		}
 	}
 
-	return m, nil, false
+	if !m.isLoading && m.isLoggedIn {
+		updatedSearchInput, cmd := m.searchInput.Update(msg)
+		m.searchInput = updatedSearchInput
+		filterTickets(&m)
+		return m, cmd
+	}
+
+	return m, nil
 }
