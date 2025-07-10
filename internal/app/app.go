@@ -103,6 +103,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
+		if !m.isLoading && m.isLoggedIn {
+			if m.showSearch {
+				m.searchInput, cmd = m.searchInput.Update(msg)
+				filterTickets(&m)
+			} else {
+				m.table, cmd = m.table.Update(msg)
+			}
+		}
 
 	case "credentials":
 		switch msg := msg.(type) {
@@ -112,6 +120,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
+		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
+
 	case "form":
 		if m.isSubmittingForm {
 			return m, nil
@@ -148,20 +158,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				},
 			)
 		}
-
-		return m, cmd
-	}
-
-	if !m.isLoading && m.isLoggedIn && m.view == "list" {
-		if m.showSearch {
-			m.searchInput, cmd = m.searchInput.Update(msg)
-			filterTickets(&m)
-		} else {
-			m.table, cmd = m.table.Update(msg)
-		}
-	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
-		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
-	} else if m.view == "form" {
 		m.input, cmd = m.input.Update(msg)
 	}
 
