@@ -28,7 +28,11 @@ func (m *model) updateTableSize() {
 		}
 		m.table.SetColumns(columns)
 		m.table.SetWidth(m.width - 2)
-		m.table.SetHeight(m.height - 4)
+		height := m.height - 3
+		if m.showSearch {
+			height = height - 1
+		}
+		m.table.SetHeight(height)
 	}
 }
 
@@ -79,6 +83,7 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			m.searchInput.SetValue(m.search)
 			m.searchInput.Focus()
 			m.showSearch = true
+			m.updateTableSize()
 			return m, nil, true
 		}
 	case credentialsNeededMsg:

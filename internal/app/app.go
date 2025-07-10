@@ -177,9 +177,10 @@ func (m model) View() string {
 
 	if m.err != nil {
 		b := strings.Builder{}
-		b.WriteString(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
-		b.WriteString("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+		bw := b.WriteString
+		bw(gui.ErrorText.Render(fmt.Sprintf("❌ %v", m.err)))
+		bw("\n\n")
+		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
 
@@ -188,11 +189,12 @@ func (m model) View() string {
 
 	if !m.isLoggedIn && m.isLoading {
 		b := strings.Builder{}
-		b.WriteString(m.spinner.View())
-		b.WriteString(" ")
-		b.WriteString("Validating credentials...")
-		b.WriteString("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
+		bw := b.WriteString
+		bw(m.spinner.View())
+		bw(" ")
+		bw("Validating credentials...")
+		bw("\n\n")
+		bw(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
 
@@ -201,10 +203,11 @@ func (m model) View() string {
 
 	if m.isLoading {
 		b := strings.Builder{}
-		b.WriteString(m.spinner.View())
-		b.WriteString(" ")
-		b.WriteString("Loading Jira tickets...")
-		b.WriteString("\n\n")
+		bw := b.WriteString
+		bw(m.spinner.View())
+		bw(" ")
+		bw("Loading Jira tickets...")
+		bw("\n\n")
 		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 			{Key: "q/ctrl+c", Desc: "Quit"},
 		}))
@@ -215,10 +218,11 @@ func (m model) View() string {
 	if m.view == "form" {
 		if m.isSubmittingForm {
 			b := strings.Builder{}
-			b.WriteString(m.spinner.View())
-			b.WriteString(" ")
-			b.WriteString("Creating branch and updating Jira...")
-			b.WriteString("\n\n")
+			bw := b.WriteString
+			bw(m.spinner.View())
+			bw(" ")
+			bw("Creating branch and updating Jira...")
+			bw("\n\n")
 			b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
 				{Key: "q/ctrl+c", Desc: "Quit"},
 			}))
@@ -233,23 +237,40 @@ func (m model) View() string {
 		return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
 	}
 
-	b := strings.Builder{}
-
-	if m.showSearch {
-		b.WriteString(m.searchInput.View())
-		b.WriteString("\n")
-	}
-
-	return b.String() + lipgloss.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("8")).
-		Render(m.table.View()) + "\n" + gui.CreateHelpItems([]gui.HelpItem{
+	helper := gui.CreateHelpItems([]gui.HelpItem{
 		{Key: "enter", Desc: "Select ticket"},
 		{Key: "/", Desc: "Search"},
 		{Key: "r", Desc: "Refresh"},
 		{Key: "S", Desc: "Sign out"},
 		{Key: "q/ctrl+c", Desc: "Quit"},
 	})
+
+	b := strings.Builder{}
+	bw := b.WriteString
+
+	if m.showSearch {
+		bw(m.searchInput.View())
+		bw("\n")
+	}
+
+	if m.search != "" && !m.showSearch {
+		helperWidth := lipgloss.Width(helper)
+		availableWidth := m.width - helperWidth
+		searchText := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("3")).
+			Render(fmt.Sprintf("/%s", m.search))
+
+		helper = helper +
+			lipgloss.NewStyle().
+				Width(availableWidth-1).
+				Align(lipgloss.Right).
+				Render(searchText)
+	}
+
+	return b.String() + lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("8")).
+		Render(m.table.View()) + "\n" + helper
 }
 
 func Run() {

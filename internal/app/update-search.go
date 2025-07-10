@@ -29,6 +29,7 @@ func updateSearch(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 		switch msg.String() {
 		case "enter":
 			m.showSearch = false
+			m.updateTableSize()
 			m.search = m.searchInput.Value()
 			m.table.GotoTop()
 			filteredTickets := []jira.JiraTicketsMsg{}
@@ -47,6 +48,7 @@ func updateSearch(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			}, true
 		case "esc":
 			m.showSearch = false
+			m.updateTableSize()
 			return m, nil, true
 		}
 	}
