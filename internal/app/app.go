@@ -87,7 +87,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.spinner, cmd = m.spinner.Update(msg)
 			return m, cmd
 		}
-
 	}
 
 	// view specific messages
@@ -153,14 +152,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 
-	// view specific updates
 	if !m.isLoading && m.isLoggedIn && m.view == "list" {
 		if m.showSearch {
 			m.searchInput, cmd = m.searchInput.Update(msg)
+			filterTickets(&m)
 		} else {
 			m.table, cmd = m.table.Update(msg)
 		}
-
 	} else if m.view == "credentials" && len(m.credentialInputs) > 0 {
 		m.credentialInputs[m.currentField], cmd = m.credentialInputs[m.currentField].Update(msg)
 	} else if m.view == "form" {
@@ -251,6 +249,10 @@ func (m model) View() string {
 	if m.showSearch {
 		bw(m.searchInput.View())
 		bw("\n")
+		helper = gui.CreateHelpItems([]gui.HelpItem{
+			{Key: "esc", Desc: "Clear"},
+			{Key: "enter", Desc: "Confirm"},
+		})
 	}
 
 	if m.search != "" && !m.showSearch {

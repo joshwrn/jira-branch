@@ -4,10 +4,8 @@ import (
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/jira"
-	"github.com/joshwrn/jira-branch/internal/utils"
 	"github.com/zalando/go-keyring"
 )
 
@@ -101,42 +99,11 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd, bool) {
 			m.allTickets = msg.tickets
 		}
 		m.tickets = msg.tickets
-		columns := []table.Column{
-			{Title: "Key", Width: 0},
-			{Title: "Type", Width: 0},
-			{Title: "Summary", Width: 0},
-			{Title: "Status", Width: 0},
-			{Title: "Created", Width: 0},
-		}
 
-		rows := []table.Row{}
-		for _, ticket := range m.tickets {
-			rows = append(rows, table.Row{ticket.Key, ticket.Type, ticket.Summary, ticket.Status, utils.FormatRelativeTime(ticket.Created)})
-		}
+		filterTickets(&m)
 
-		t := table.New(
-			table.WithColumns(columns),
-			table.WithRows(rows),
-			table.WithFocused(true),
-		)
-
-		s := table.DefaultStyles()
-		s.Header = s.Header.
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("8")).
-			BorderBottom(true).
-			Bold(false)
-		s.Selected = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("12")).
-			Background(lipgloss.Color("0")).
-			Bold(false)
-
-		t.SetStyles(s)
-
-		m.table = t
 		m.isLoading = false
 		m.isLoggedIn = true
-		m.updateTableSize()
 		return m, nil, true
 	}
 
