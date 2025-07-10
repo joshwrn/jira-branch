@@ -232,6 +232,7 @@ func (m model) View() string {
 	}
 
 	helper := gui.CreateHelpItems([]gui.HelpItem{
+		{Key: "j/k", Desc: "↓/↑"},
 		{Key: "enter", Desc: "Select ticket"},
 		{Key: "/", Desc: "Search"},
 		{Key: "r", Desc: "Refresh"},
@@ -239,8 +240,8 @@ func (m model) View() string {
 		{Key: "q/ctrl+c", Desc: "Quit"},
 	})
 
-	b := strings.Builder{}
-	bw := b.WriteString
+	searchView := strings.Builder{}
+	bw := searchView.WriteString
 
 	if m.showSearch {
 		bw(m.searchInput.View())
@@ -265,7 +266,7 @@ func (m model) View() string {
 				Render(searchText)
 	}
 
-	return b.String() + lipgloss.NewStyle().
+	return searchView.String() + lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("8")).
 		Render(m.table.View()) + "\n" + helper
