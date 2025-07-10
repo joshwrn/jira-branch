@@ -2,3 +2,4 @@
 /builds
 
 *.log
+*jira-branch.config.json

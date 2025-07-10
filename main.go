@@ -3,18 +3,19 @@ package main
 import (
 	"github.com/joho/godotenv"
 	"github.com/joshwrn/jira-branch/internal/app"
+	"github.com/joshwrn/jira-branch/internal/utils"
 )
 
 func main() {
-	err := app.Init()
+	err := utils.Init()
 	if err != nil {
-		app.Log.Fatal().Err(err).Msg("Error initializing logger")
+		utils.Log.Fatal().Err(err).Msg("Error initializing logger")
 	}
 
 	err = godotenv.Load()
 	if err != nil {
-		app.Log.Fatal().Err(err).Msg("Error loading .env file")
+		utils.Log.Fatal().Err(err).Msg("Error loading .env file")
 	}
-	app.Log.Info().Msg("Starting application")
+	utils.Log.Info().Msg("Starting application")
 	app.Run()
 }

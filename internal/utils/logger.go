@@ -1,4 +1,4 @@
-package app
+package utils
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 
 var Log zerolog.Logger
 
-func logObject(obj interface{}, msg string) {
+func LogObject(obj interface{}, msg string) {
 	prettyJSON, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
 		Log.Error().Err(err).Msg("Failed to marshal object")
