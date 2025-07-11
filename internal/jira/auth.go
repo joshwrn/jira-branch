@@ -39,19 +39,8 @@ func ClearCredentials() error {
 
 // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-myself/#api-rest-api-3-myself-get
 func ValidateCredentials(credentials Credentials) error {
-	url := fmt.Sprintf("%s/rest/api/3/myself", credentials.JiraURL)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	auth := createAuthHeader(credentials)
-	req.Header.Add("Authorization", "Basic "+auth)
-	req.Header.Add("Accept", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	client := newClient()
+	resp, err := client.makeRequest("GET", "myself", nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Jira: %v", err)
 	}

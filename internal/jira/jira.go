@@ -10,14 +10,6 @@ import (
 	"github.com/joshwrn/jira-branch/internal/utils"
 )
 
-func createJiraUrl(endpoint string) string {
-	credentials, err := LoadCredentials()
-	if err != nil {
-		return ""
-	}
-	return fmt.Sprintf("%s/rest/api/3/%s", credentials.JiraURL, endpoint)
-}
-
 type Transition struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -32,31 +24,22 @@ type TransitionResponse struct {
 
 // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-get
 func GetInProgressTransition(issueKey string, credentials Credentials) (string, error) {
-	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return "", err
-	}
-
-	auth := createAuthHeader(credentials)
-
-	req.Header.Add("Authorization", "Basic "+auth)
-	req.Header.Add("Accept", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
+	client := newClient()
+	resp, err := client.makeRequest(
+		"GET",
+		fmt.Sprintf("issue/%s/transitions", issueKey),
+		nil,
+	)
 	if err != nil {
 		return "", err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 {
+	if resp.StatusCode == http.StatusUnauthorized {
 		return "", fmt.Errorf("authentication failed: check your credentials")
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("jira API error: %d", resp.StatusCode)
 	}
 
@@ -82,8 +65,6 @@ func GetInProgressTransition(issueKey string, credentials Credentials) (string, 
 
 // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issues/#api-rest-api-3-issue-issueidorkey-transitions-post
 func MarkAsInProgress(credentials Credentials, issueKey string) error {
-	url := createJiraUrl(fmt.Sprintf("issue/%s/transitions", issueKey))
-
 	transitionId, err := GetInProgressTransition(issueKey, credentials)
 	if err != nil {
 		return err
@@ -95,31 +76,23 @@ func MarkAsInProgress(credentials Credentials, issueKey string) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+
+	client := newClient()
+	resp, err := client.makeRequest(
+		"POST",
+		fmt.Sprintf("issue/%s/transitions", issueKey),
+		bytes.NewBuffer(body),
+	)
 	if err != nil {
-		fmt.Println("Error creating request:", err)
-		return err
-	}
-
-	auth := createAuthHeader(credentials)
-
-	req.Header.Add("Authorization", "Basic "+auth)
-	req.Header.Add("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	if err != nil {
-		fmt.Println("Error creating request:", err)
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 {
+	if resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("authentication failed: check your credentials")
 	}
 
-	if resp.StatusCode != 204 {
+	if resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("jira API error: %d", resp.StatusCode)
 	}
 
@@ -136,17 +109,11 @@ type JiraTicketsMsg struct {
 
 // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
 func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
-	url := createJiraUrl("search")
-
-	req, err := http.NewRequest("GET", url, nil)
+	client := newClient()
+	req, err := client.createRequest("GET", "search", nil)
 	if err != nil {
 		return []JiraTicketsMsg{}, err
 	}
-
-	auth := createAuthHeader(credentials)
-
-	req.Header.Add("Authorization", "Basic "+auth)
-	req.Header.Add("Accept", "application/json")
 
 	config, err := utils.ReadConfigFile()
 	if err != nil {
@@ -164,18 +131,17 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	q.Add("maxResults", "100")
 	req.URL.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		return []JiraTicketsMsg{}, err
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 {
+	if resp.StatusCode == http.StatusUnauthorized {
 		return []JiraTicketsMsg{}, fmt.Errorf("authentication failed: check your credentials")
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return []JiraTicketsMsg{}, fmt.Errorf("jira API error: %d", resp.StatusCode)
 	}
 
