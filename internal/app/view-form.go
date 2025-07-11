@@ -27,9 +27,9 @@ func viewForm(m model) string {
 	sidebar := createSidebar(&m)
 
 	formWidth := m.width - m.width/4 - 5
-	formView := lipgloss.NewStyle().Width(formWidth).Render(m.form.View())
+	formView := lipgloss.NewStyle().Width(formWidth).PaddingTop(2).Render(m.form.View())
 
-	return lipgloss.JoinHorizontal(lipgloss.Center, formView, sidebar)
+	return lipgloss.JoinHorizontal(lipgloss.Top, formView, sidebar)
 }
 
 func createForm(m *model, initialBranchName string) *huh.Form {
