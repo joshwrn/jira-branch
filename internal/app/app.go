@@ -121,29 +121,21 @@ func (m model) View() string {
 	}
 
 	if !m.isLoggedIn && m.isLoading {
-		b := strings.Builder{}
-		bw := b.WriteString
-		bw(m.spinner.View())
-		bw(" ")
-		bw("Validating credentials...")
-		bw("\n\n")
-		bw(gui.CreateHelpItems([]gui.HelpItem{
-			{Key: "q/ctrl+c", Desc: "Quit"},
-		}))
-		return b.String()
+		return gui.CreateLoadingView(&gui.LoadingView{
+			Text:    "Validating credentials...",
+			Width:   m.width,
+			Height:  m.height,
+			Spinner: m.spinner,
+		})
 	}
 
 	if m.isLoading {
-		b := strings.Builder{}
-		bw := b.WriteString
-		bw(m.spinner.View())
-		bw(" ")
-		bw("Loading Jira tickets...")
-		bw("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
-			{Key: "q/ctrl+c", Desc: "Quit"},
-		}))
-		return b.String()
+		return gui.CreateLoadingView(&gui.LoadingView{
+			Text:    "Loading Jira tickets...",
+			Width:   m.width,
+			Height:  m.height,
+			Spinner: m.spinner,
+		})
 	}
 
 	if m.view == "form" {

@@ -12,22 +12,22 @@ import (
 
 func viewForm(m model) string {
 	if m.isSubmittingForm {
-		b := strings.Builder{}
-		bw := b.WriteString
-		bw(m.spinner.View())
-		bw(" ")
-		bw("Creating branch and updating Jira...")
-		bw("\n\n")
-		b.WriteString(gui.CreateHelpItems([]gui.HelpItem{
-			{Key: "q/ctrl+c", Desc: "Quit"},
-		}))
-		return b.String()
+		return gui.CreateLoadingView(&gui.LoadingView{
+			Text:    "Creating branch and updating Jira...",
+			Width:   m.width,
+			Height:  m.height,
+			Spinner: m.spinner,
+		})
 	}
 
 	sidebar := createSidebar(&m)
 
 	formWidth := m.width - m.width/4 - 5
-	formView := lipgloss.NewStyle().Width(formWidth).PaddingTop(2).Render(m.form.View())
+	formView := lipgloss.NewStyle().
+		Width(formWidth).
+		PaddingTop(2).
+		PaddingLeft(2).
+		Render(m.form.View())
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, formView, sidebar)
 }
@@ -80,6 +80,11 @@ func createSidebar(m *model) string {
 	b := strings.Builder{}
 
 	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("4")).
+		Render(m.list.SelectedRow()[2]))
+	b.WriteString("\n\n")
+
+	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("5")).
 		Render(m.list.SelectedRow()[1]))
 	b.WriteString(" - ")
@@ -88,15 +93,11 @@ func createSidebar(m *model) string {
 		Render(m.list.SelectedRow()[3]))
 	b.WriteString("\n\n")
 
-	b.WriteString(lipgloss.NewStyle().
-		Foreground(lipgloss.Color("4")).
-		Render(m.list.SelectedRow()[2]))
-	b.WriteString("\n\n")
-
 	b.WriteString(m.list.SelectedRow()[4])
 
 	sidebar := lipgloss.NewStyle().
 		Width(m.width/4).
+		Height(m.height-3).
 		BorderStyle(lipgloss.RoundedBorder()).
 		Padding(1, 3).
 		BorderForeground(lipgloss.Color("8")).
