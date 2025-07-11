@@ -34,29 +34,43 @@ func viewForm(m model) string {
 
 func createForm(m *model, initialBranchName string) *huh.Form {
 	branchName := initialBranchName
+
 	shouldMarkAsInProgress := true
+	status := m.list.SelectedRow()[3]
+	isInProgress := strings.EqualFold(status, "In Progress")
+
+	if isInProgress {
+		shouldMarkAsInProgress = false
+	}
+
 	m.formBranchName = &branchName
 	m.formShouldMarkAsInProgress = &shouldMarkAsInProgress
 
+	inputField := huh.NewInput().
+		Title("Branch name").
+		Value(m.formBranchName).Validate(func(value string) error {
+		if len(value) == 0 {
+			return errors.New("branch name is required")
+		}
+		if git_utils.BranchNameRegex.MatchString(value) {
+			return errors.New("branch name can only contain letters, numbers, '-', '_', '/' and '.'")
+		}
+		return nil
+	})
+
+	fields := []huh.Field{inputField}
+
+	if !isInProgress {
+		confirmField := huh.NewConfirm().
+			Title("Mark as in progress?").
+			Value(m.formShouldMarkAsInProgress).
+			Affirmative("Yes").
+			Negative("No").Inline(true)
+		fields = append(fields, confirmField)
+	}
+
 	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Branch name").
-				Value(m.formBranchName).Validate(func(value string) error {
-				if len(value) == 0 {
-					return errors.New("branch name is required")
-				}
-				if git_utils.BranchNameRegex.MatchString(value) {
-					return errors.New("branch name can only contain letters, numbers, '-', '_', '/' and '.'")
-				}
-				return nil
-			}),
-			huh.NewConfirm().
-				Title("Mark as in progress?").
-				Value(m.formShouldMarkAsInProgress).
-				Affirmative("Yes").
-				Negative("No").Inline(true),
-		).WithTheme(customTheme()),
+		huh.NewGroup(fields...).WithTheme(customTheme()),
 	)
 
 	return form
