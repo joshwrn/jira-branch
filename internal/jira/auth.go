@@ -57,11 +57,11 @@ func ValidateCredentials(credentials Credentials) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == 401 {
+	if resp.StatusCode == http.StatusUnauthorized {
 		return fmt.Errorf("invalid credentials: check your email and API token")
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected response from Jira API: %d", resp.StatusCode)
 	}
 

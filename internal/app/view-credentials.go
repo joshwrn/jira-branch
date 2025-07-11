@@ -71,7 +71,7 @@ func viewCredentials(m model) string {
 	b.WriteString("\n\n")
 
 	b.WriteString(gui.FaintWhiteText.
-		Render(`If you choose "API token with scopes" give it the "read:jira-work" scope.`))
+		Render(`Do NOT use the "API token with scopes" option.`))
 
 	b.WriteString("\n\n")
 
