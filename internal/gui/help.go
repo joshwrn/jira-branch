@@ -25,5 +25,7 @@ func CreateHelpItems(items []HelpItem) string {
 		}
 	}
 
-	return b.String()
+	return lipgloss.NewStyle().
+		PaddingLeft(1).
+		Render(b.String())
 }
