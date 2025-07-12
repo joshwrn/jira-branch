@@ -56,7 +56,6 @@ func CreateCredentialInputs(width int) []textinput.Model {
 func viewCredentials(m model) string {
 	var b strings.Builder
 
-	b.WriteString("\n")
 	b.WriteString(lipgloss.
 		NewStyle().
 		Foreground(lipgloss.Color("7")).
@@ -68,7 +67,7 @@ func viewCredentials(m model) string {
 			Underline(true).
 			Render("https://id.atlassian.com/manage-profile/security/api-tokens"))
 
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
 	b.WriteString(gui.FaintWhiteText.
 		Render(`Do NOT use the "API token with scopes" option.`))
@@ -93,5 +92,9 @@ func viewCredentials(m model) string {
 		{Key: "ctrl+c", Desc: "Quit"},
 	}))
 
-	return b.String()
+	return lipgloss.NewStyle().
+		Width(m.width).
+		Height(m.height).
+		Padding(1, 3).
+		Render(b.String())
 }
