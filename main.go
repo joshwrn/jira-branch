@@ -9,12 +9,12 @@ import (
 func main() {
 	err := utils.Init()
 	if err != nil {
-		utils.Log.Fatal().Err(err).Msg("Error initializing logger")
+		utils.Log.Warn().Err(err).Msg("Error initializing logger")
 	}
 
 	err = godotenv.Load()
 	if err != nil {
-		utils.Log.Fatal().Err(err).Msg("Error loading .env file")
+		utils.Log.Warn().Err(err).Msg("No .env file found, continuing with environment variables")
 	}
 	utils.Log.Info().Msg("Starting application")
 	app.Run()
