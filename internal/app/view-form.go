@@ -90,21 +90,37 @@ func createForm(m *model, initialBranchName string) *huh.Form {
 func createSidebar(m *model) string {
 	b := strings.Builder{}
 
+	divider := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("8")).
+		Render(strings.Repeat("─", sidebarWidth-6))
+
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("4")).
 		Render(m.list.SelectedRow()[2]))
-	b.WriteString("\n\n")
+
+	b.WriteString("\n")
+	b.WriteString(divider)
+	b.WriteString("\n")
 
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("5")).
 		Render(m.list.SelectedRow()[1]))
-	b.WriteString(" - ")
+
+	b.WriteString("\n")
+	b.WriteString(divider)
+	b.WriteString("\n")
+
 	b.WriteString(lipgloss.NewStyle().
 		Foreground(lipgloss.Color("2")).
 		Render(m.list.SelectedRow()[3]))
-	b.WriteString("\n\n")
 
-	b.WriteString(m.list.SelectedRow()[4])
+	b.WriteString("\n")
+	b.WriteString(divider)
+	b.WriteString("\n")
+
+	b.WriteString(lipgloss.NewStyle().
+		Foreground(lipgloss.Color("7")).
+		Render(m.list.SelectedRow()[4]))
 
 	sidebar := lipgloss.NewStyle().
 		Width(sidebarWidth).
