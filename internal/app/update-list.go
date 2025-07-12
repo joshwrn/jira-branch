@@ -13,9 +13,9 @@ func (m *model) updateTableSize() {
 	if m.width > 0 && m.height > 0 {
 		keyWidth := 10
 		typeWidth := 10
-		statusWidth := 15
+		statusWidth := 25
 		createdWidth := 15
-		summaryWidth := max(20, m.width-keyWidth-typeWidth-statusWidth-createdWidth-12)
+		summaryWidth := max(25, m.width-keyWidth-typeWidth-statusWidth-createdWidth-12)
 
 		columns := []table.Column{
 			{Title: "Key", Width: keyWidth},
