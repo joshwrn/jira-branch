@@ -10,6 +10,8 @@ import (
 	"github.com/joshwrn/jira-branch/internal/gui"
 )
 
+var sidebarWidth = 34
+
 func viewForm(m model) string {
 	if m.isSubmittingForm {
 		return gui.CreateLoadingView(&gui.LoadingView{
@@ -21,7 +23,7 @@ func viewForm(m model) string {
 	}
 
 	nameLen := len(*m.formBranchName)
-	formWidth := m.width - m.width/4 - 5
+	formWidth := m.width - sidebarWidth - 5
 	if nameLen > formWidth-8 {
 		return lipgloss.NewStyle().
 			Width(m.width).
@@ -105,7 +107,7 @@ func createSidebar(m *model) string {
 	b.WriteString(m.list.SelectedRow()[4])
 
 	sidebar := lipgloss.NewStyle().
-		Width(m.width/4).
+		Width(sidebarWidth).
 		Height(m.height-3).
 		BorderStyle(lipgloss.RoundedBorder()).
 		Padding(1, 3).
