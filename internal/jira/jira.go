@@ -117,7 +117,7 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 
 	config, err := utils.ReadConfigFile()
 	if err != nil {
-		utils.Log.Error().Err(err).Msg("Failed to read config file")
+		utils.Log.Info().Err(err).Msg("Failed to read config file")
 	}
 
 	q := req.URL.Query()
