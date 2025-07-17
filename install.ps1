@@ -31,36 +31,6 @@ function Get-Architecture {
     }
 }
 
-# Function to get current version
-function Get-CurrentVersion {
-    param(
-        [string]$InstallPath
-    )
-    
-    $binaryPath = Join-Path $InstallPath "jira-branch.exe"
-    
-    # Check install path first, then PATH
-    if (Test-Path $binaryPath) {
-        $checkPath = $binaryPath
-    } elseif (Get-Command "jira-branch" -ErrorAction SilentlyContinue) {
-        $checkPath = (Get-Command "jira-branch").Source
-    } else {
-        return $null
-    }
-    
-    try {
-        # Try to get version from the binary (assuming it supports --version)
-        $versionOutput = & $checkPath --version 2>$null
-        if ($LASTEXITCODE -eq 0 -and $versionOutput) {
-            return $versionOutput.Trim()
-        }
-    }
-    catch {
-        # If --version doesn't work, we'll return unknown
-    }
-    
-    return "unknown"
-}
 
 # Function to get download URL and release info
 function Get-ReleaseInfo {
@@ -179,33 +149,9 @@ function Main {
         exit 1
     }
     
-    # Check current version
-    $currentVersion = Get-CurrentVersion -InstallPath $InstallPath
-    if ($currentVersion) {
-        Write-ColorOutput "Current version: $currentVersion" "Blue"
-    }
-    
     # Get release info
     $release = Get-ReleaseInfo -Arch $arch
-    Write-ColorOutput "Latest version: $($release.Version)" "Blue"
-    
-    # Check if update is needed
-    if ($currentVersion -and $currentVersion -ne "unknown") {
-        if ($currentVersion.Contains($release.Version) -or $release.Version.Contains($currentVersion)) {
-            Write-ColorOutput "You already have the latest version installed." "Green"
-            $continue = Read-Host "Do you want to reinstall anyway? (y/N)"
-            if ($continue -notmatch "^[Yy]") {
-                Write-ColorOutput "Installation cancelled." "Yellow"
-                return
-            }
-        } else {
-            Write-ColorOutput "Updating from $currentVersion to $($release.Version)" "Green"
-        }
-    } elseif ($currentVersion -eq "unknown") {
-        Write-ColorOutput "Found existing installation (version unknown). Updating..." "Yellow"
-    } else {
-        Write-ColorOutput "Installing jira-branch $($release.Version)" "Green"
-    }
+    Write-ColorOutput "Installing jira-branch $($release.Version)" "Green"
     
     # Install binary
     Install-Binary -DownloadUrl $release.DownloadUrl -InstallPath $InstallPath -Filename $release.Name
