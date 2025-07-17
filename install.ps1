@@ -2,7 +2,7 @@
 # Detects OS/architecture and downloads the appropriate binary
 
 param(
-    [string]$InstallPath = "$env:LOCALAPPDATA\jira-branch"
+    [string]$InstallPath = "$env:USERPROFILE\.jira-branch\bin"
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,13 +39,18 @@ function Get-CurrentVersion {
     
     $binaryPath = Join-Path $InstallPath "jira-branch.exe"
     
-    if (-not (Test-Path $binaryPath)) {
+    # Check install path first, then PATH
+    if (Test-Path $binaryPath) {
+        $checkPath = $binaryPath
+    } elseif (Get-Command "jira-branch" -ErrorAction SilentlyContinue) {
+        $checkPath = (Get-Command "jira-branch").Source
+    } else {
         return $null
     }
     
     try {
         # Try to get version from the binary (assuming it supports --version)
-        $versionOutput = & $binaryPath --version 2>$null
+        $versionOutput = & $checkPath --version 2>$null
         if ($LASTEXITCODE -eq 0 -and $versionOutput) {
             return $versionOutput.Trim()
         }

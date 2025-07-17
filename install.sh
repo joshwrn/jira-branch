@@ -6,7 +6,7 @@
 set -e
 
 REPO="joshwrn/jira-branch"
-INSTALL_DIR="/usr/local/bin"
+INSTALL_DIR="$HOME/.jira-branch/bin"
 
 # Colors for output
 RED='\033[0;31m'
@@ -41,11 +41,11 @@ detect_arch() {
 get_current_version() {
     local binary_path
     
-    # Check common locations
-    if command -v jira-branch >/dev/null 2>&1; then
-        binary_path=$(which jira-branch)
-    elif [ -f "$INSTALL_DIR/jira-branch" ]; then
+    # Check install directory first, then PATH, then current directory
+    if [ -f "$INSTALL_DIR/jira-branch" ]; then
         binary_path="$INSTALL_DIR/jira-branch"
+    elif command -v jira-branch >/dev/null 2>&1; then
+        binary_path=$(which jira-branch)
     elif [ -f "./jira-branch" ]; then
         binary_path="./jira-branch"
     else
@@ -126,23 +126,32 @@ install_binary() {
     
     # Install binary
     if [ "$os" = "windows" ]; then
-        # For Windows, just move to current directory or suggest manual installation
-        echo -e "${YELLOW}Moving binary to current directory...${NC}"
-        mv "$temp_file" "./$binary_name.exe"
-        echo -e "${GREEN}✓ Binary installed as ./$binary_name.exe${NC}"
-        echo -e "${BLUE}Add the current directory to your PATH or move the binary to a directory in your PATH${NC}"
+        # For Windows in bash (like Git Bash), install to user directory
+        echo -e "${YELLOW}Installing to $INSTALL_DIR...${NC}"
+        
+        # Create install directory if it doesn't exist
+        mkdir -p "$INSTALL_DIR"
+        
+        mv "$temp_file" "$INSTALL_DIR/$binary_name.exe"
+        echo -e "${GREEN}✓ Binary installed to $INSTALL_DIR/$binary_name.exe${NC}"
+        echo -e "${BLUE}Add $INSTALL_DIR to your PATH to use 'jira-branch' from anywhere${NC}"
     else
-        # For Unix-like systems, install to /usr/local/bin
-        echo -e "${YELLOW}Installing to $INSTALL_DIR (may require sudo)...${NC}"
+        # For Unix-like systems, install to user directory
+        echo -e "${YELLOW}Installing to $INSTALL_DIR...${NC}"
         
-        # Check if we can write to install directory
-        if [ -w "$INSTALL_DIR" ]; then
-            mv "$temp_file" "$INSTALL_DIR/$binary_name"
-        else
-            sudo mv "$temp_file" "$INSTALL_DIR/$binary_name"
-        fi
+        # Create install directory if it doesn't exist
+        mkdir -p "$INSTALL_DIR"
         
+        mv "$temp_file" "$INSTALL_DIR/$binary_name"
         echo -e "${GREEN}✓ Binary installed to $INSTALL_DIR/$binary_name${NC}"
+        
+        # Check if install dir is in PATH
+        if echo "$PATH" | grep -q "$INSTALL_DIR"; then
+            echo -e "${GREEN}✓ $INSTALL_DIR is already in your PATH${NC}"
+        else
+            echo -e "${BLUE}Add $INSTALL_DIR to your PATH to use 'jira-branch' from anywhere:${NC}"
+            echo -e "${BLUE}  echo 'export PATH=\"\$PATH:$INSTALL_DIR\"' >> ~/.bashrc && source ~/.bashrc${NC}"
+        fi
     fi
 }
 
