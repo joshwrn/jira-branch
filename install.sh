@@ -37,8 +37,33 @@ detect_arch() {
     esac
 }
 
-# Function to get download URL for platform
-get_download_url() {
+# Function to get current version
+get_current_version() {
+    local binary_path
+    
+    # Check common locations
+    if command -v jira-branch >/dev/null 2>&1; then
+        binary_path=$(which jira-branch)
+    elif [ -f "$INSTALL_DIR/jira-branch" ]; then
+        binary_path="$INSTALL_DIR/jira-branch"
+    elif [ -f "./jira-branch" ]; then
+        binary_path="./jira-branch"
+    else
+        echo ""
+        return
+    fi
+    
+    # Try to get version from the binary
+    local version_output
+    if version_output=$($binary_path --version 2>/dev/null); then
+        echo "$version_output"
+    else
+        echo "unknown"
+    fi
+}
+
+# Function to get release info
+get_release_info() {
     local os=$1
     local arch=$2
     
@@ -51,6 +76,9 @@ get_download_url() {
         exit 1
     fi
     
+    # Extract version
+    local version=$(echo "$release_info" | grep '"tag_name"' | head -1 | cut -d '"' -f 4)
+    
     # Construct expected filename based on your build pattern
     local filename
     if [ "$os" = "windows" ]; then
@@ -61,6 +89,7 @@ get_download_url() {
     
     # Extract download URL
     local download_url=$(echo "$release_info" | grep -E "browser_download_url.*$filename" | head -1 | cut -d '"' -f 4)
+    local asset_name=$(echo "$release_info" | grep -E "\"name\".*$filename" | head -1 | cut -d '"' -f 4)
     
     if [ -z "$download_url" ]; then
         echo -e "${RED}Error: No release found for $os-$arch${NC}"
@@ -69,22 +98,22 @@ get_download_url() {
         exit 1
     fi
     
-    echo "$download_url"
+    # Return as space-separated values: version download_url asset_name
+    echo "$version $download_url $asset_name"
 }
 
 # Function to install binary
 install_binary() {
     local download_url=$1
     local os=$2
+    local asset_name=$3
     
-    # Get filename from URL
-    local filename=$(basename "$download_url")
     local binary_name="jira-branch"
     
-    echo -e "${YELLOW}Downloading $filename...${NC}"
+    echo -e "${YELLOW}Downloading $asset_name...${NC}"
     
     # Download to temp location
-    local temp_file="/tmp/$filename"
+    local temp_file="/tmp/$asset_name"
     curl -L -o "$temp_file" "$download_url"
     
     if [ $? -ne 0 ]; then
@@ -132,12 +161,41 @@ main() {
         exit 1
     fi
     
-    # Get download URL
-    DOWNLOAD_URL=$(get_download_url "$OS" "$ARCH")
-    echo -e "Download URL: ${BLUE}$DOWNLOAD_URL${NC}"
+    # Check current version
+    CURRENT_VERSION=$(get_current_version)
+    if [ -n "$CURRENT_VERSION" ]; then
+        echo -e "Current version: ${BLUE}$CURRENT_VERSION${NC}"
+    fi
+    
+    # Get release info (returns: version download_url asset_name)
+    RELEASE_INFO=$(get_release_info "$OS" "$ARCH")
+    LATEST_VERSION=$(echo "$RELEASE_INFO" | cut -d' ' -f1)
+    DOWNLOAD_URL=$(echo "$RELEASE_INFO" | cut -d' ' -f2)
+    ASSET_NAME=$(echo "$RELEASE_INFO" | cut -d' ' -f3)
+    
+    echo -e "Latest version: ${BLUE}$LATEST_VERSION${NC}"
+    
+    # Check if update is needed
+    if [ -n "$CURRENT_VERSION" ] && [ "$CURRENT_VERSION" != "unknown" ]; then
+        if echo "$CURRENT_VERSION" | grep -q "$LATEST_VERSION" || echo "$LATEST_VERSION" | grep -q "$CURRENT_VERSION"; then
+            echo -e "${GREEN}You already have the latest version installed.${NC}"
+            echo -n "Do you want to reinstall anyway? (y/N): "
+            read -r CONTINUE
+            if [ "$CONTINUE" != "y" ] && [ "$CONTINUE" != "Y" ]; then
+                echo -e "${YELLOW}Installation cancelled.${NC}"
+                return
+            fi
+        else
+            echo -e "${GREEN}Updating from $CURRENT_VERSION to $LATEST_VERSION${NC}"
+        fi
+    elif [ "$CURRENT_VERSION" = "unknown" ]; then
+        echo -e "${YELLOW}Found existing installation (version unknown). Updating...${NC}"
+    else
+        echo -e "${GREEN}Installing jira-branch $LATEST_VERSION${NC}"
+    fi
     
     # Install binary
-    install_binary "$DOWNLOAD_URL" "$OS"
+    install_binary "$DOWNLOAD_URL" "$OS" "$ASSET_NAME"
     
     echo -e "${GREEN}✓ Installation complete!${NC}"
     echo -e "${BLUE}Run 'jira-branch' to get started${NC}"

@@ -31,8 +31,34 @@ function Get-Architecture {
     }
 }
 
-# Function to get download URL
-function Get-DownloadUrl {
+# Function to get current version
+function Get-CurrentVersion {
+    param(
+        [string]$InstallPath
+    )
+    
+    $binaryPath = Join-Path $InstallPath "jira-branch.exe"
+    
+    if (-not (Test-Path $binaryPath)) {
+        return $null
+    }
+    
+    try {
+        # Try to get version from the binary (assuming it supports --version)
+        $versionOutput = & $binaryPath --version 2>$null
+        if ($LASTEXITCODE -eq 0 -and $versionOutput) {
+            return $versionOutput.Trim()
+        }
+    }
+    catch {
+        # If --version doesn't work, we'll return unknown
+    }
+    
+    return "unknown"
+}
+
+# Function to get download URL and release info
+function Get-ReleaseInfo {
     param(
         [string]$Arch
     )
@@ -59,21 +85,24 @@ function Get-DownloadUrl {
         exit 1
     }
     
-    return $asset.browser_download_url
+    return @{
+        Version = $releaseInfo.tag_name
+        DownloadUrl = $asset.browser_download_url
+        Name = $asset.name
+    }
 }
 
 # Function to install binary
 function Install-Binary {
     param(
         [string]$DownloadUrl,
-        [string]$InstallPath
+        [string]$InstallPath,
+        [string]$Filename
     )
     
-    # Get filename from URL
-    $filename = Split-Path $DownloadUrl -Leaf
     $binaryName = "jira-branch.exe"
     
-    Write-ColorOutput "Downloading $filename..." "Yellow"
+    Write-ColorOutput "Downloading $Filename..." "Yellow"
     
     # Create install directory if it doesn't exist
     if (-not (Test-Path $InstallPath)) {
@@ -81,16 +110,33 @@ function Install-Binary {
     }
     
     # Download binary
-    $tempFile = Join-Path $env:TEMP $filename
+    $tempFile = Join-Path $env:TEMP $Filename
     $finalPath = Join-Path $InstallPath $binaryName
     
     try {
         Invoke-WebRequest -Uri $DownloadUrl -OutFile $tempFile
+        
+        # If binary exists and is in use, try to stop any running processes
+        if (Test-Path $finalPath) {
+            try {
+                Get-Process | Where-Object { $_.Path -eq $finalPath } | Stop-Process -Force -ErrorAction SilentlyContinue
+                Start-Sleep -Milliseconds 500
+            }
+            catch {
+                # Ignore errors from stopping processes
+            }
+        }
+        
         Move-Item $tempFile $finalPath -Force
     }
     catch {
         Write-ColorOutput "Error: Failed to download or install binary" "Red"
         Write-ColorOutput $_.Exception.Message "Red"
+        
+        if ($_.Exception.Message -like "*being used by another process*") {
+            Write-ColorOutput "The binary appears to be running. Please close jira-branch and try again." "Yellow"
+        }
+        
         exit 1
     }
     
@@ -128,12 +174,36 @@ function Main {
         exit 1
     }
     
-    # Get download URL
-    $downloadUrl = Get-DownloadUrl -Arch $arch
-    Write-ColorOutput "Download URL: $downloadUrl" "Blue"
+    # Check current version
+    $currentVersion = Get-CurrentVersion -InstallPath $InstallPath
+    if ($currentVersion) {
+        Write-ColorOutput "Current version: $currentVersion" "Blue"
+    }
+    
+    # Get release info
+    $release = Get-ReleaseInfo -Arch $arch
+    Write-ColorOutput "Latest version: $($release.Version)" "Blue"
+    
+    # Check if update is needed
+    if ($currentVersion -and $currentVersion -ne "unknown") {
+        if ($currentVersion.Contains($release.Version) -or $release.Version.Contains($currentVersion)) {
+            Write-ColorOutput "You already have the latest version installed." "Green"
+            $continue = Read-Host "Do you want to reinstall anyway? (y/N)"
+            if ($continue -notmatch "^[Yy]") {
+                Write-ColorOutput "Installation cancelled." "Yellow"
+                return
+            }
+        } else {
+            Write-ColorOutput "Updating from $currentVersion to $($release.Version)" "Green"
+        }
+    } elseif ($currentVersion -eq "unknown") {
+        Write-ColorOutput "Found existing installation (version unknown). Updating..." "Yellow"
+    } else {
+        Write-ColorOutput "Installing jira-branch $($release.Version)" "Green"
+    }
     
     # Install binary
-    Install-Binary -DownloadUrl $downloadUrl -InstallPath $InstallPath
+    Install-Binary -DownloadUrl $release.DownloadUrl -InstallPath $InstallPath -Filename $release.Name
     
     Write-ColorOutput "✓ Installation complete!" "Green"
     Write-ColorOutput "Run 'jira-branch' to get started" "Blue"
