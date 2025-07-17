@@ -18,8 +18,7 @@ function Write-ColorOutput {
     Write-Host $Message -ForegroundColor $Color
 }
 
-Write-ColorOutput "Jira Branch Installer" "Blue"
-Write-ColorOutput "======================" "Blue"
+Write-ColorOutput "Installing Jira Branch..." "Blue"
 
 # Function to detect architecture
 function Get-Architecture {
@@ -38,7 +37,7 @@ function Get-ReleaseInfo {
         [string]$Arch
     )
     
-    Write-ColorOutput "Fetching latest release info..." "Yellow"
+    Write-ColorOutput "Fetching latest release info..." "White"
     
     try {
         $releaseInfo = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO/releases/latest"
@@ -77,7 +76,7 @@ function Install-Binary {
     
     $binaryName = "jira-branch.exe"
     
-    Write-ColorOutput "Downloading $Filename..." "Yellow"
+    Write-ColorOutput "Downloading $Filename..." "White"
     
     # Create install directory if it doesn't exist
     if (-not (Test-Path $InstallPath)) {
@@ -115,7 +114,7 @@ function Install-Binary {
         exit 1
     }
     
-    Write-ColorOutput "✓ Binary installed to $finalPath" "Green"
+    Write-ColorOutput "Binary installed to $finalPath" "Green"
     
     # Check if install path is in PATH
     $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
@@ -125,7 +124,7 @@ function Install-Binary {
         try {
             $newPath = "$currentPath;$InstallPath"
             [Environment]::SetEnvironmentVariable("PATH", $newPath, "User")
-            Write-ColorOutput "✓ Added to PATH. Restart your terminal or run: `$env:PATH += `";$InstallPath`"" "Green"
+            Write-ColorOutput "Added to PATH. Restart your terminal or run: `$env:PATH += `";$InstallPath`"" "Green"
         }
         catch {
             Write-ColorOutput "Warning: Could not add to PATH automatically" "Yellow"
@@ -136,7 +135,7 @@ function Install-Binary {
 
 # Main installation process
 function Main {
-    Write-ColorOutput "Detecting platform..." "Yellow"
+    Write-ColorOutput "Detecting platform..." "White"
     
     $arch = Get-Architecture
     $os = "windows"
@@ -156,7 +155,7 @@ function Main {
     # Install binary
     Install-Binary -DownloadUrl $release.DownloadUrl -InstallPath $InstallPath -Filename $release.Name
     
-    Write-ColorOutput "✓ Installation complete!" "Green"
+    Write-ColorOutput "Installation complete!" "Green"
     Write-ColorOutput "Run 'jira-branch' to get started" "Blue"
 }
 
