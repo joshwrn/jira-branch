@@ -37,6 +37,92 @@ detect_arch() {
     esac
 }
 
+# Function to detect shell config file
+detect_shell_config() {
+    # Check current shell
+    local current_shell=$(basename "$SHELL" 2>/dev/null || echo "bash")
+    
+    case "$current_shell" in
+        zsh)
+            if [ -f "$HOME/.zshrc" ]; then
+                echo "$HOME/.zshrc"
+            else
+                echo "$HOME/.zshrc"  # Will be created if needed
+            fi
+            ;;
+        bash)
+            if [ -f "$HOME/.bashrc" ]; then
+                echo "$HOME/.bashrc"
+            elif [ -f "$HOME/.bash_profile" ]; then
+                echo "$HOME/.bash_profile"
+            else
+                echo "$HOME/.bashrc"  # Will be created if needed
+            fi
+            ;;
+        *)
+            # Default to .bashrc for unknown shells
+            echo "$HOME/.bashrc"
+            ;;
+    esac
+}
+
+# Function to configure shell alias
+configure_alias() {
+    local config_file=$(detect_shell_config)
+    local shell_name=$(basename "$SHELL" 2>/dev/null || echo "bash")
+    local alias_line="alias jb='jira-branch'"
+    
+    echo -e "${YELLOW}Setting up 'jb' alias...${NC}"
+    
+    # Check if alias already exists
+    if [ -f "$config_file" ] && grep -q "alias jb=" "$config_file"; then
+        echo -e "${YELLOW}Alias 'jb' already exists in $config_file${NC}"
+        echo -e "${BLUE}You can run 'jb' instead of 'jira-branch'${NC}"
+        return 0
+    fi
+    
+    # Create config file if it doesn't exist
+    if [ ! -f "$config_file" ]; then
+        touch "$config_file"
+        echo -e "${YELLOW}Created $config_file${NC}"
+    fi
+    
+    # Add alias to config file
+    echo "" >> "$config_file"
+    echo "# Jira Branch alias" >> "$config_file"
+    echo "$alias_line" >> "$config_file"
+    
+    echo -e "${GREEN}✓ Added alias 'jb' to $config_file${NC}"
+    echo -e "${BLUE}Restart your terminal or run 'source $config_file' to use the alias${NC}"
+    echo -e "${BLUE}You can now run 'jb' instead of 'jira-branch'${NC}"
+    
+    return 0
+}
+
+# Function to prompt for alias setup
+prompt_alias_setup() {
+    echo ""
+    echo -e "${BLUE}Would you like to set up a shell alias 'jb' for jira-branch?${NC}"
+    echo -e "${BLUE}This will add 'alias jb=jira-branch' to your shell configuration.${NC}"
+    
+    while true; do
+        read -p "Set up alias? (y/n): " yn
+        case $yn in
+            [Yy]* ) 
+                configure_alias
+                break
+                ;;
+            [Nn]* ) 
+                echo -e "${BLUE}Skipping alias setup. You can run 'jira-branch' directly.${NC}"
+                break
+                ;;
+            * ) 
+                echo "Please answer yes or no."
+                ;;
+        esac
+    done
+}
+
 
 # Function to get release info
 get_release_info() {
@@ -157,8 +243,12 @@ main() {
     # Install binary
     install_binary "$DOWNLOAD_URL" "$OS" "$ASSET_NAME"
     
+    # Prompt for alias setup
+    prompt_alias_setup
+    
+    echo ""
     echo -e "${GREEN}✓ Installation complete!${NC}"
-    echo -e "${BLUE}Run 'jira-branch' to get started${NC}"
+    echo -e "${BLUE}Run 'jira-branch' (or 'jb' if you set up the alias) to get started${NC}"
 }
 
 # Check for required commands
