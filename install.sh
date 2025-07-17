@@ -43,12 +43,12 @@ get_release_info() {
     local os=$1
     local arch=$2
     
-    # Get latest release info
-    echo -e "${YELLOW}Fetching latest release info...${NC}"
+    # Get latest release info (redirect to stderr so it doesn't interfere with return value)
+    echo -e "${YELLOW}Fetching latest release info...${NC}" >&2
     local release_info=$(curl -s "https://api.github.com/repos/$REPO/releases/latest")
     
     if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: Failed to fetch release information${NC}"
+        echo -e "${RED}Error: Failed to fetch release information${NC}" >&2
         exit 1
     fi
     
@@ -64,13 +64,13 @@ get_release_info() {
     fi
     
     # Extract download URL
-    local download_url=$(echo "$release_info" | grep -E "browser_download_url.*$filename" | head -1 | cut -d '"' -f 4)
-    local asset_name=$(echo "$release_info" | grep -E "\"name\".*$filename" | head -1 | cut -d '"' -f 4)
+    local download_url=$(echo "$release_info" | grep -E "browser_download_url.*$filename" | head -1 | cut -d '"' -f 4 | xargs)
+    local asset_name=$(echo "$release_info" | grep -E "\"name\".*$filename" | head -1 | cut -d '"' -f 4 | xargs)
     
     if [ -z "$download_url" ]; then
-        echo -e "${RED}Error: No release found for $os-$arch${NC}"
-        echo "Available releases:"
-        echo "$release_info" | grep -E '"name".*jira-branch' | cut -d '"' -f 4
+        echo -e "${RED}Error: No release found for $os-$arch${NC}" >&2
+        echo "Available releases:" >&2
+        echo "$release_info" | grep -E '"name".*jira-branch' | cut -d '"' -f 4 >&2
         exit 1
     fi
     
