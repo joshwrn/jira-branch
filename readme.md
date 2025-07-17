@@ -41,6 +41,21 @@ jb
 jira-branch
 ```
 
+### Setting up your Jira API token
+
+The first time you run `jb`, you'll be prompted to sign in to Jira.
+
+First, enter your Atlassian URL. This will probably be something like `your-company.atlassian.net`.
+
+Then, enter the email address you use to sign in to Jira.
+
+Finally, enter your Jira API token. You can create one in your Atlassian account settings.
+
+> [!WARNING]
+> Make sure you do NOT choose the "API token with scopes" option.
+
+[Create an API token](https://id.atlassian.com/manage-profile/security/api-tokens)
+
 ---
 
 ## Configuration
