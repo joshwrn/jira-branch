@@ -66,6 +66,46 @@ function Get-ReleaseInfo {
     }
 }
 
+# Function to add PowerShell alias
+function Add-PowerShellAlias {
+    param(
+        [string]$InstallPath
+    )
+    
+    Write-ColorOutput "" "White"
+    $addAlias = Read-Host "Would you like to add an alias 'jb' for 'jira-branch' to your PowerShell profile? (y/N)"
+    
+    if ($addAlias -match "^[Yy]") {
+        try {
+            # Check if profile exists, create if not
+            if (-not (Test-Path $PROFILE)) {
+                New-Item -ItemType File -Path $PROFILE -Force | Out-Null
+                Write-ColorOutput "Created PowerShell profile at $PROFILE" "Yellow"
+            }
+            
+            # Check if alias already exists
+            $profileContent = Get-Content $PROFILE -ErrorAction SilentlyContinue
+            $aliasExists = $profileContent | Where-Object { $_ -like "*Set-Alias jb jira-branch*" -or $_ -like "*Set-Alias -Name jb*" }
+            
+            if ($aliasExists) {
+                Write-ColorOutput "Alias 'jb' already exists in your PowerShell profile" "Yellow"
+                return
+            }
+            
+            # Add alias to profile
+            $aliasLine = "Set-Alias jb jira-branch"
+            Add-Content $PROFILE "`n# Jira Branch alias`n$aliasLine"
+            
+            Write-ColorOutput "✅ Added alias 'jb' to your PowerShell profile" "Green"
+            Write-ColorOutput "Restart your PowerShell session or run: . `$PROFILE" "Blue"
+        }
+        catch {
+            Write-ColorOutput "Warning: Could not add alias to PowerShell profile" "Yellow"
+            Write-ColorOutput "You can manually add 'Set-Alias jb jira-branch' to your profile" "Yellow"
+        }
+    }
+}
+
 # Function to install binary
 function Install-Binary {
     param(
@@ -131,6 +171,9 @@ function Install-Binary {
             Write-ColorOutput "Please add $InstallPath to your PATH manually" "Yellow"
         }
     }
+    
+    # Offer to add alias to PowerShell profile
+    Add-PowerShellAlias -InstallPath $InstallPath
 }
 
 # Main installation process
