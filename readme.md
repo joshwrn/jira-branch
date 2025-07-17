@@ -23,10 +23,23 @@ The installer will:
 - Download the latest release
 - Install to `~/.jira-branch/bin/`
 - Add to your PATH (you may need to restart your terminal)
+- Optionally, add the alias `jb` to your shell config
 
 ### Updating
 
 Run the installation script again to update to the latest version.
+
+---
+
+## Usage
+
+You can use the alias `jb` or the full command `jira-branch`.
+
+```
+jb
+# or
+jira-branch
+```
 
 ---
 
