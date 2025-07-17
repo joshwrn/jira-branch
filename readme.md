@@ -6,6 +6,30 @@ A CLI tool that allows you to create a branch using the name of one of your late
 
 ---
 
+## Installation
+
+**Windows (PowerShell):**
+```powershell
+iwr https://raw.githubusercontent.com/joshwrn/jira-branch/main/install.ps1 | iex
+```
+
+**macOS/Linux (Bash):**
+```bash
+curl -sSL https://raw.githubusercontent.com/joshwrn/jira-branch/main/install.sh | bash
+```
+
+The installer will:
+- Detect your OS and architecture automatically
+- Download the latest release
+- Install to `~/.jira-branch/bin/`
+- Add to your PATH (you may need to restart your terminal)
+
+### Updating
+
+Run the installation script again to update to the latest version.
+
+---
+
 ## Configuration
 
 To only show issues from a specific project, add a file called `jira-branch.config.json` in the root of your project.
