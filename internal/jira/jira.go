@@ -110,7 +110,7 @@ type JiraTicketsMsg struct {
 // https://developer.atlassian.com/cloud/jira/platform/rest/v3/api-group-issue-search/#api-rest-api-3-search-jql-get
 func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	client := newClient()
-	req, err := client.createRequest("GET", "search", nil)
+	req, err := client.createRequest("GET", "search/jql", nil)
 	if err != nil {
 		return []JiraTicketsMsg{}, err
 	}
@@ -142,6 +142,11 @@ func GetJiraTickets(credentials Credentials) ([]JiraTicketsMsg, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		utils.Log.Error().
+			Int("status_code", resp.StatusCode).
+			Str("response_body", string(bodyBytes)).
+			Msg("Failed to get Jira tickets")
 		return []JiraTicketsMsg{}, fmt.Errorf("jira API error: %d", resp.StatusCode)
 	}
 
