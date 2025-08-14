@@ -1,5 +1,5 @@
 # build-all.ps1
-$version = "v0.1.0"
+$version = "v0.1.1"
 $appName = "jira-branch"
 
 Write-Host "Building $appName $version for all platforms..."
