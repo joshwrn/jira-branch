@@ -1,11 +1,15 @@
 package app
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/table"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/joshwrn/jira-branch/internal/git_utils"
 	"github.com/joshwrn/jira-branch/internal/jira"
+	"github.com/pkg/browser"
 	"github.com/zalando/go-keyring"
 )
 
@@ -44,6 +48,17 @@ func updateList(m model, msg tea.Msg) (model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "o":
+			item := m.tickets[m.list.Cursor()]
+			parts := strings.Split(m.credentials.JiraURL, ".")
+			subdomain := parts[0]
+			u := strings.TrimPrefix(subdomain, "https://")
+			url := fmt.Sprintf("https://jira.%s.com/browse/%s", u, item.Key)
+			err := browser.OpenURL(url)
+			if err != nil {
+				fmt.Printf("Error opening URL: %v\n", err)
+			}
+			return m, nil
 		case "r":
 			m.isLoading = true
 			tickets, err := jira.GetJiraTickets(m.credentials)

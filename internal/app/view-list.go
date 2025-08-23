@@ -14,6 +14,7 @@ func viewList(m model) string {
 		{Key: "enter", Desc: "Select ticket"},
 		{Key: "/", Desc: "Search"},
 		{Key: "r", Desc: "Refresh"},
+		{Key: "o", Desc: "Open ticket"},
 		{Key: "S", Desc: "Sign out"},
 		{Key: "q/ctrl+c", Desc: "Quit"},
 	})
